@@ -9,3 +9,4 @@ transformers
 requests
 deep-translator
 torch
+google.cloud
