@@ -1,29 +1,26 @@
 import os
+import json
 import requests
 import streamlit as st
 from google.cloud import vision
+import dotenv
 from langchain.chains import ConversationChain
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain_groq import ChatGroq
 from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
-from dotenv import load_dotenv
-
-# Load environment variables from .env file (if any, for local use only)
-load_dotenv()
 
 # Ensure consistent language detection
 DetectorFactory.seed = 0
 
+# Load environment variables
+dotenv.load_dotenv(dotenv.find_dotenv())
+
 # Streamlit page settings
 st.set_page_config(page_title="Serbian GPT", page_icon="💫")
 
-# Load API credentials from Streamlit secrets
-groq_api_key = st.secrets["groq"]["GROQ_API_KEY"]  # Groq API key from Streamlit secrets
-
-# Set up Google Cloud credentials using Streamlit secrets
-google_credentials = st.secrets["google"]["GOOGLE_APPLICATION_CREDENTIALS"]
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
+# Set Google Cloud credentials
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "D:/IMP- DATA/Download/gentle-impulse-442016-m5-8c9a87a4f3a8.json"
 
 def initialize_session_state():
     """Initialize Streamlit session state variables."""
@@ -40,9 +37,9 @@ def initialize_session_state():
     if 'ocr_text' not in st.session_state:
         st.session_state.ocr_text = ""
 
-def initialize_groq_chat(api_key, model_name):
+def initialize_groq_chat(groq_api_key, model_name):
     """Initialize Groq chat with API key and model."""
-    return ChatGroq(groq_api_key=api_key, model_name=model_name)
+    return ChatGroq(groq_api_key=groq_api_key, model_name=model_name)
 
 def initialize_conversation(groq_chat, memory):
     """Initialize conversation chain with memory."""
@@ -92,6 +89,7 @@ def perform_ocr_with_vision_api(image_path):
 
     return ocr_text, translated_text, detected_language, target_language
 
+
 def process_user_question(user_question, conversation1, conversation2, uploaded_image=None, ocr_text=""):
     """Processes the user question and generates a hybrid response."""
     user_question_for_model = user_question
@@ -123,6 +121,7 @@ def display_chat_history():
             st.sidebar.markdown(f"🤖 *AI:* {message['AI']}\n")
 
 def main():
+    groq_api_key = os.environ['GROQ_API_KEY']
     initialize_session_state()
 
     # Language toggle (button for switching between English and Serbian)
@@ -173,11 +172,18 @@ def main():
         conversation_model1 = initialize_conversation(groq_chat_model1, memory)
         conversation_model2 = initialize_conversation(groq_chat_model2, memory)
 
-        process_user_question(user_question, conversation_model1, conversation_model2, uploaded_image=st.session_state.uploaded_image, ocr_text=st.session_state.ocr_text)
+        with st.spinner("Bot is thinking..." if st.session_state.language == 'English' else "Četbot razmišlja..."):
+            process_user_question(
+                user_question,
+                conversation_model1,
+                conversation_model2,
+                uploaded_image=st.session_state.uploaded_image,
+                ocr_text=st.session_state.ocr_text
+            )
 
+        ai_response = st.session_state.chat_history[-1]["AI"]
         with st.chat_message("assistant"):
-            response = st.session_state.chat_history[-1]["AI"]
-            st.markdown(response)
+            st.markdown(ai_response)
 
 if __name__ == "__main__":
     main()
