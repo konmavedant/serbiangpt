@@ -9,4 +9,5 @@ transformers
 requests
 deep-translator
 torch
-google.cloud
+google-cloud-vision
+
