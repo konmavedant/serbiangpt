@@ -10,4 +10,4 @@ requests
 deep-translator
 torch
 google-cloud-vision
-
+langdetect
