@@ -19,7 +19,7 @@ dotenv.load_dotenv(dotenv.find_dotenv())
 st.set_page_config(page_title="Serbian GPT", page_icon="💫")
 
 # Set Google Cloud credentials
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "D:/IMP- DATA/Download/gentle-impulse-442016-m5-8c9a87a4f3a8.json"
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "gentle-impulse-442016-m5-8c9a87a4f3a8.json"
 
 def initialize_session_state():
     """Initialize Streamlit session state variables."""
