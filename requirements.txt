@@ -6,4 +6,6 @@ langchain-groq
 langchain-text-splitters
 python-dotenv
 transformers
+requests
+deep-translator
 torch
