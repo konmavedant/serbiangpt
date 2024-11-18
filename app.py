@@ -9,7 +9,7 @@ from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file (if any, for local use only)
 load_dotenv()
 
 # Ensure consistent language detection
@@ -18,14 +18,12 @@ DetectorFactory.seed = 0
 # Streamlit page settings
 st.set_page_config(page_title="Serbian GPT", page_icon="💫")
 
-# Load API credentials
-groq_api_key = os.getenv("GROQ_API_KEY")  # Groq API key from .env file
+# Load API credentials from Streamlit secrets
+groq_api_key = st.secrets["groq"]["GROQ_API_KEY"]  # Groq API key from Streamlit secrets
 
-# Save Google credentials from Streamlit secrets to a file
+# Set up Google Cloud credentials using Streamlit secrets
 google_credentials = st.secrets["google"]["GOOGLE_APPLICATION_CREDENTIALS"]
-with open("google_credentials.json", "w") as creds_file:
-    creds_file.write(google_credentials)
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_credentials.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
 
 def initialize_session_state():
     """Initialize Streamlit session state variables."""
@@ -175,18 +173,11 @@ def main():
         conversation_model1 = initialize_conversation(groq_chat_model1, memory)
         conversation_model2 = initialize_conversation(groq_chat_model2, memory)
 
-        with st.spinner("Bot is thinking..." if st.session_state.language == 'English' else "Četbot razmišlja..."):
-            process_user_question(
-                user_question,
-                conversation_model1,
-                conversation_model2,
-                uploaded_image=st.session_state.uploaded_image,
-                ocr_text=st.session_state.ocr_text
-            )
+        process_user_question(user_question, conversation_model1, conversation_model2, uploaded_image=st.session_state.uploaded_image, ocr_text=st.session_state.ocr_text)
 
-        ai_response = st.session_state.chat_history[-1]["AI"]
         with st.chat_message("assistant"):
-            st.markdown(ai_response)
+            response = st.session_state.chat_history[-1]["AI"]
+            st.markdown(response)
 
 if __name__ == "__main__":
     main()
