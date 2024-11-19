@@ -10,8 +10,6 @@ from langchain_groq import ChatGroq
 from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
 import requests
-import streamlit.components.v1 as components
-
 
 # Ensure consistent language detection
 DetectorFactory.seed = 0
@@ -127,99 +125,12 @@ def display_chat_history():
 
 def display_image_upload_options():
     """Display options for camera and file uploads."""
-    st.markdown("**📷 Click to Open Camera for Image Capture**")
-    
-    # Initialize uploaded_file_camera as None
-    uploaded_file_camera = None
+    st.markdown("**📷 Use Camera to Capture Image**")
+    uploaded_file_camera = st.camera_input("Click Photo" if st.session_state.language == 'English' else "Kliknite fotografiju")
+    st.markdown("**🖼️ Or Upload Image File**")
+    uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
 
-    # Show button to open the camera with custom JS
-    if st.button("Open Camera"):
-        # Embedding custom JS to open the camera in full-screen
-        components.html("""
-            <style>
-                #camera-container {
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    background-color: black;
-                }
-                #camera-container video {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-                #take-photo-button {
-                    position: absolute;
-                    bottom: 10%;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    padding: 10px 20px;
-                    background-color: #4CAF50;
-                    color: white;
-                    font-size: 20px;
-                    border: none;
-                    border-radius: 5px;
-                    cursor: pointer;
-                }
-                #switch-camera-button {
-                    position: absolute;
-                    bottom: 20%;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    padding: 10px 20px;
-                    background-color: #2196F3;
-                    color: white;
-                    font-size: 20px;
-                    border: none;
-                    border-radius: 5px;
-                    cursor: pointer;
-                }
-            </style>
-            <div id="camera-container">
-                <video id="video" autoplay></video>
-                <button id="take-photo-button">Take Photo</button>
-                <button id="switch-camera-button">Switch Camera</button>
-            </div>
-            <script>
-                let currentStream;
-                let videoElement = document.getElementById('video');
-                const takePhotoButton = document.getElementById('take-photo-button');
-                const switchCameraButton = document.getElementById('switch-camera-button');
-                let facingMode = 'user'; // Start with front camera
-                
-                // Access the camera
-                function startCamera() {
-                    navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } })
-                        .then((stream) => {
-                            currentStream = stream;
-                            videoElement.srcObject = stream;
-                        })
-                        .catch((err) => {
-                            alert("Unable to access camera: " + err.message);
-                        });
-                }
-                
-                startCamera();
-
-                // Switch between front and back camera
-                switchCameraButton.addEventListener('click', () => {
-                    facingMode = (facingMode === 'user') ? 'environment' : 'user';
-                    currentStream.getTracks().forEach(track => track.stop());
-                    startCamera();
-                });
-
-                // Take a photo (for demonstration purposes, you can add functionality here)
-                takePhotoButton.addEventListener('click', () => {
-                    alert("Photo captured (you can add functionality to process the image)");
-                });
-            </script>
-        """, height=600)
-
-    # Streamlit file uploader for image file uploads
-    uploaded_file = st.file_uploader("🖼️ Or Upload Image File", type=["jpg", "jpeg", "png"])
-
-    return uploaded_file
+    return uploaded_file_camera, uploaded_file
 
 def main():
     # URL to the public JSON credentials file hosted on Google Cloud Storage
@@ -252,17 +163,14 @@ def main():
     display_chat_history()
     st.divider()
 
-    # Display options for image upload (camera or file upload)
-    uploaded_file = display_image_upload_options()  # Only unpack a single value
+    # Display options for image upload
+    uploaded_file_camera, uploaded_file = display_image_upload_options()
 
-    if uploaded_file is None:
-        st.info("No image uploaded yet. Please upload an image using the file uploader.")
-    
-    if uploaded_file is not None:
+    if uploaded_file_camera is not None:
         with st.spinner("Processing image for text..." if st.session_state.language == 'English' else "Obrada slike za tekst..."):
-            temp_path = f"temp_{uploaded_file.name}"
+            temp_path = f"temp_{uploaded_file_camera.name}"
             with open(temp_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+                f.write(uploaded_file_camera.getbuffer())
             try:
                 ocr_text, translated_text, detected_language, target_language = perform_ocr_with_vision_api(temp_path, credentials)
                 
