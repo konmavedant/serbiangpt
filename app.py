@@ -10,6 +10,8 @@ from langchain_groq import ChatGroq
 from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
 import requests
+import streamlit.components.v1 as components
+
 
 # Ensure consistent language detection
 DetectorFactory.seed = 0
@@ -125,8 +127,41 @@ def display_chat_history():
 
 def display_image_upload_options():
     """Display options for camera and file uploads."""
-    st.markdown("**📷 Use Camera to Capture Image**")
-    uploaded_file_camera = st.camera_input("Click Photo" if st.session_state.language == 'English' else "Kliknite fotografiju")
+    st.markdown("**📷 Click to Open Camera for Image Capture**")
+    if st.button("Open Camera"):
+        # Embedding custom JS to open the camera in full-screen
+        components.html("""
+            <style>
+                #camera-container {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    background-color: black;
+                }
+                #camera-container video {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+            </style>
+            <div id="camera-container">
+                <video id="video" autoplay></video>
+            </div>
+            <script>
+                const videoElement = document.getElementById('video');
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then((stream) => {
+                        videoElement.srcObject = stream;
+                    })
+                    .catch((err) => {
+                        alert("Unable to access camera: " + err.message);
+                    });
+            </script>
+        """, height=600)
+
+    uploaded_file_camera = None  # Initially, no image captured
+
     st.markdown("**🖼️ Or Upload Image File**")
     uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
 
