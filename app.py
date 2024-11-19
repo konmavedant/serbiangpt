@@ -1,8 +1,8 @@
 import os
 import json
-import requests
 import streamlit as st
-from google.cloud import vision
+from google.cloud import vision, secretmanager
+from google.oauth2 import service_account
 import dotenv
 from langchain.chains import ConversationChain
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
@@ -19,8 +19,18 @@ dotenv.load_dotenv(dotenv.find_dotenv())
 # Streamlit page settings
 st.set_page_config(page_title="Serbian GPT", page_icon="💫")
 
-# Set Google Cloud credentials
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "D:/IMP- DATA/Download/gentle-impulse-442016-m5-8c9a87a4f3a8.json"
+def fetch_credentials_from_secret_manager(project_id, secret_id):
+    """
+    Fetch service account credentials JSON from Google Secret Manager and return a credentials object.
+    """
+    client = secretmanager.SecretManagerServiceClient()
+    secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+    response = client.access_secret_version(request={"name": secret_name})
+    credentials_json = response.payload.data.decode("UTF-8")
+
+    # Parse the credentials JSON into a credentials object
+    credentials = service_account.Credentials.from_service_account_info(json.loads(credentials_json))
+    return credentials
 
 def initialize_session_state():
     """Initialize Streamlit session state variables."""
@@ -41,19 +51,15 @@ def initialize_groq_chat(groq_api_key, model_name):
     """Initialize Groq chat with API key and model."""
     return ChatGroq(groq_api_key=groq_api_key, model_name=model_name)
 
-def initialize_conversation(groq_chat, memory):
-    """Initialize conversation chain with memory."""
-    return ConversationChain(llm=groq_chat, memory=memory)
-
-def perform_ocr_with_vision_api(image_path):
-    """Performs OCR using Google Cloud Vision API and translates detected text."""
-    client = vision.ImageAnnotatorClient()
+def perform_ocr_with_vision_api(image_path, credentials):
+    """Performs OCR using Google Cloud Vision API with the provided credentials."""
+    client = vision.ImageAnnotatorClient(credentials=credentials)
     with open(image_path, 'rb') as image_file:
         content = image_file.read()
-    
+
     image = vision.Image(content=content)
     response = client.text_detection(image=image)
-    
+
     ocr_text = response.text_annotations[0].description if response.text_annotations else ""
     detected_language = 'unknown'
     translated_text = ocr_text
@@ -65,30 +71,31 @@ def perform_ocr_with_vision_api(image_path):
         detected_language = locale
     else:
         try:
-            # Fallback to langdetect
             detected_language = detect(ocr_text)
         except Exception as e:
             print(f"Language detection failed: {e}")
             detected_language = "unknown"
-    
+
     try:
         # Handle translation
-        if detected_language in ['sr', 'mk', 'unknown']:  # Assume Serbian/Macedonian for Cyrillic
+        if detected_language in ['sr', 'mk', 'unknown']:
             translated_text = GoogleTranslator(source="auto", target="en").translate(ocr_text)
             target_language = "English"
-        elif detected_language == 'en':  # English detected
+        elif detected_language == 'en':
             translated_text = GoogleTranslator(source="en", target="sr").translate(ocr_text)
             target_language = "Serbian"
         else:
-            translated_text = f"Text detected as {detected_language}, which is not supported for translation."
+            translated_text = f"Text detected as {detected_language}, unsupported for translation."
             target_language = "Unknown"
     except Exception as e:
         translated_text = f"Translation failed. Extracted text: {ocr_text}"
-        target_language = "Unknown"
         print(f"Error during translation: {e}")
 
     return ocr_text, translated_text, detected_language, target_language
 
+def initialize_conversation(groq_chat, memory):
+    """Initialize conversation chain with memory."""
+    return ConversationChain(llm=groq_chat, memory=memory)
 
 def process_user_question(user_question, conversation1, conversation2, uploaded_image=None, ocr_text=""):
     """Processes the user question and generates a hybrid response."""
@@ -116,18 +123,24 @@ def display_chat_history():
     """Displays the chat history in the sidebar.""" 
     st.sidebar.subheader("Chat History" if st.session_state.language == 'English' else "Istorija razgovora")
     for message in st.session_state.chat_history:
-        st.sidebar.markdown(f"🧑 *You:* {message['human']}")
+        st.sidebar.markdown(f"🧑 You: {message['human']}")
         if message['AI']:
-            st.sidebar.markdown(f"🤖 *AI:* {message['AI']}\n")
+            st.sidebar.markdown(f"🤖 AI: {message['AI']}\n")
 
 def main():
-    groq_api_key = os.environ['GROQ_API_KEY']
+    # Fetch credentials directly from Secret Manager
+    project_id = "gentle-impulse-442016-m5"  # Replace with your GCP project ID
+    secret_id = "gcloud-credentials"   # Replace with your secret name
+    credentials = fetch_credentials_from_secret_manager(project_id, secret_id)
+
+    # Initialize session state
     initialize_session_state()
 
-    # Language toggle (button for switching between English and Serbian)
+    # Streamlit UI for language toggle
     language_toggle = st.toggle("Switch to Serbian")
     st.session_state.language = 'Serbian' if language_toggle else 'English'
 
+    # Set page title and instructions
     title_text = "Serbia-GPT 💫" if st.session_state.language == 'English' else "Srbija-GPT 💫"
     st.title(title_text)
     welcome_text = "Chat with Serbia GPT, an ultra-fast AI chatbot!" if st.session_state.language == 'English' else "Razgovarajte sa Srbija GPT, izuzetno brzim AI četbotom!"
@@ -145,7 +158,7 @@ def main():
                 f.write(uploaded_file.getbuffer())
             try:
                 # Perform OCR and translation
-                ocr_text, translated_text, detected_language, target_language = perform_ocr_with_vision_api(temp_path)
+                ocr_text, translated_text, detected_language, target_language = perform_ocr_with_vision_api(temp_path, credentials)
                 
                 # Save translated text to session state
                 st.session_state.ocr_text = translated_text
@@ -157,7 +170,7 @@ def main():
                 )
                 
                 # Display as a bot response
-                st.markdown(f"**Extracted Text ({detected_language.capitalize()}):** {ocr_text}\n\n**Translated to {target_language.capitalize()}:** {translated_text}")
+                st.markdown(f"*Extracted Text ({detected_language.capitalize()}):* {ocr_text}\n\n*Translated to {target_language.capitalize()}:* {translated_text}")
             finally:
                 os.remove(temp_path)
 
@@ -167,8 +180,8 @@ def main():
         with st.chat_message("user"):
             st.markdown(user_question)
 
-        groq_chat_model1 = initialize_groq_chat(groq_api_key, st.session_state.model1)
-        groq_chat_model2 = initialize_groq_chat(groq_api_key, st.session_state.model2)
+        groq_chat_model1 = initialize_groq_chat(os.environ['GROQ_API_KEY'], st.session_state.model1)
+        groq_chat_model2 = initialize_groq_chat(os.environ['GROQ_API_KEY'], st.session_state.model2)
         conversation_model1 = initialize_conversation(groq_chat_model1, memory)
         conversation_model2 = initialize_conversation(groq_chat_model2, memory)
 
