@@ -12,3 +12,4 @@ torch
 google-cloud-vision
 langdetect
 google-cloud-secret-manager
+pyperclip
