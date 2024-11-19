@@ -19,6 +19,15 @@ dotenv.load_dotenv(dotenv.find_dotenv())
 
 # Streamlit page settings
 st.set_page_config(page_title="Srpski.AI", page_icon="📸")
+hide_menu_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_menu_style, unsafe_allow_html=True)
+
 
 def load_credentials_from_url(json_url):
     """Load service account credentials from a URL."""
