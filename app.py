@@ -101,6 +101,7 @@ def perform_ocr_with_vision_api(image_path, credentials):
 
     return ocr_text, translated_text, detected_language, target_language
 
+
 def initialize_conversation(groq_chat, memory):
     """Initialize conversation chain with memory."""
     return ConversationChain(llm=groq_chat, memory=memory)
@@ -134,18 +135,18 @@ def display_chat_history():
 
 def display_image_upload_options():
     """Display options for camera and file uploads."""
-    st.markdown("**Use Camera to Capture Image or Upload Image File**" if st.session_state.language == 'English' else "**Koristite kameru za snimanje slike ili otpremite fajl slike**" )
+    st.markdown("**📷 Use Camera to Capture Image or Upload Image File**")
 
     # Create two columns with equal width (adjusted to fit on mobile screens)
     col1, col2 = st.columns([1, 1])
 
     # Button for opening camera
     with col1:
-        open_camera_button = st.button("📸 Open Camera" if st.session_state.language == 'English' else "📸 Otvorite kameru")
+        open_camera_button = st.button("Open Camera" if st.session_state.language == 'English' else "Otvorite kameru")
 
     # Button for uploading file
     with col2:
-        upload_file_button = st.button("📁 Upload File" if st.session_state.language == 'English' else "📁 Otpremite fajl")
+        upload_file_button = st.button("Upload File" if st.session_state.language == 'English' else "Otpremite fajl")
 
     # Initialize variables for image capture and upload
     uploaded_file_camera = None
@@ -157,7 +158,7 @@ def display_image_upload_options():
 
     # If "Upload File" button is clicked, display file uploader
     elif upload_file_button:
-        uploaded_file = st.file_uploader("Choose an image file" if st.session_state.language == 'English' else "Odaberite fajl slike", type=["jpg", "jpeg", "png"])
+        uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
 
     return uploaded_file_camera, uploaded_file
 
