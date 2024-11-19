@@ -11,4 +11,5 @@ deep-translator
 torch
 google-cloud-vision
 langdetect
-secretmanager
+google-cloud-secret-manager
+json
