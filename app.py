@@ -127,29 +127,47 @@ def process_user_question(user_question, conversation1, conversation2, uploaded_
 
 def display_chat_history():
     """Displays the chat history in the sidebar with copy-to-clipboard functionality."""
-    st.sidebar.subheader("Chat History" if st.session_state.language == 'English' else "Istorija razgovora", help = "Chats will only be stored for this session. If anything is important, please copy and save it elsewhere." if st.session_state.language == 'English' else "Razgovori će biti sačuvani samo za ovu sesiju. Ako je nešto važno, kopirajte i sačuvajte na drugom mestu.")
+    st.sidebar.subheader(
+        "Chat History" if st.session_state.language == 'English' else "Istorija razgovora",
+        help=(
+            "Chats will only be stored for this session. If anything is important, please copy and save it elsewhere."
+            if st.session_state.language == 'English'
+            else "Razgovori će biti sačuvani samo za ovu sesiju. Ako je nešto važno, kopirajte i sačuvajte na drugom mestu."
+        ),
+    )
 
     for i, message in enumerate(st.session_state.chat_history):
-        st.sidebar.markdown(f"🧑 **You:** {message['human']}")
+        st.sidebar.markdown(f"🧑 *You:* {message['human']}")
 
         # Display AI response in a text area
         response_key = f"response_{i}"  # Unique key for each text area
         ai_response = message['AI']
         response_container = st.sidebar.text_area(
-            label=f" 🤖 **AI:** ",
+            label=f" 🤖 *AI:* ",
             value=ai_response,
             key=response_key,
             height=100,
         )
 
         # Add a "Copy to Clipboard" button for the text area
-        if st.sidebar.button(f"📝 Copy to Clipboard"):
-            pyperclip.copy(response_container)
-            st.sidebar.success("Copied to clipboard!" if st.session_state.language == 'English' else "Kopirano u međuspremnik!")
-        
+        copy_button_key = f"copy_button_{i}"  # Unique key for each button
+        if st.sidebar.button("📝 Copy to Clipboard", key=copy_button_key):
+            try:
+                pyperclip.copy(ai_response)  # Copy the AI response to clipboard
+                st.sidebar.success(
+                    "Copied to clipboard!" if st.session_state.language == 'English' else "Kopirano u međuspremnik!"
+                )
+            except pyperclip.PyperclipException:
+                st.sidebar.error(
+                    "Copying failed. Please try again."
+                    if st.session_state.language == 'English'
+                    else "Kopiranje nije uspelo. Pokušajte ponovo."
+                )
+
+
 def display_image_upload_options():
     """Display options for selecting between camera and file uploads."""
-    st.markdown("**📷 Choose an Option for Image Capture**" if st.session_state.language == 'English' else "📷 Izaberite opciju za snimanje slike", help = "You can either click a photo using your camera or upload an existing image from your device." if st.session_state.language == 'English' else "Možete ili snimiti fotografiju kamerom ili preneti postojeću sliku sa svog uređaja.")
+    st.markdown("📷 Choose an Option for Image Capture**" if st.session_state.language == 'English' else "📷 Izaberite opciju za snimanje slike", help = "You can either click a photo using your camera or upload an existing image from your device." if st.session_state.language == 'English' else "Možete ili snimiti fotografiju kamerom ili preneti postojeću sliku sa svog uređaja.")
 
     # Create two buttons side-by-side using columns
     col1, col2 = st.columns([1, 1])
@@ -177,11 +195,11 @@ def display_image_upload_options():
     uploaded_file = None
 
     if st.session_state.show_camera:
-        st.markdown("**📸 Use Camera to Capture Image**" if st.session_state.language == 'English' else "**📸 Koristite kameru za snimanje slike**")
+        st.markdown("📸 Use Camera to Capture Image*" if st.session_state.language == 'English' else "📸 Koristite kameru za snimanje slike*")
         uploaded_file_camera = st.camera_input("Click to take a photo" if st.session_state.language == 'English' else "Kliknite da uslikate")
 
     if st.session_state.show_uploader:
-        st.markdown("**📁 Upload Image File**" if st.session_state.language == 'English' else "**📁 Otpremi sliku**")
+        st.markdown("📁 Upload Image File*" if st.session_state.language == 'English' else "📁 Otpremi sliku*")
         uploaded_file = st.file_uploader("Choose an image file" if st.session_state.language == 'English' else "Izaberite fajl sa slikom", type=["jpg", "jpeg", "png"])
 
     return uploaded_file_camera, uploaded_file
@@ -260,8 +278,8 @@ def main():
                 st.session_state.chat_history.append({
                     "human": user_action,
                     "AI": (
-                        f"**Detected Text ({detected_language.capitalize()}):** {ocr_text}\n\n"
-                        f"**Translated to {target_language.capitalize()}:** {translated_text}"
+                        f"*Detected Text ({detected_language.capitalize()}):* {ocr_text}\n\n"
+                        f"*Translated to {target_language.capitalize()}:* {translated_text}"
                     )
                 })
 
@@ -270,8 +288,8 @@ def main():
                     st.markdown(user_action)
                 with st.chat_message("assistant"):
                     st.markdown(
-                        f"**Detected Text ({detected_language.capitalize()}):** {ocr_text}\n\n"
-                        f"**Translated to {target_language.capitalize()}:** {translated_text}"
+                        f"*Detected Text ({detected_language.capitalize()}):* {ocr_text}\n\n"
+                        f"*Translated to {target_language.capitalize()}:* {translated_text}"
                     )
 
                 # Save translated text to session state for further use
