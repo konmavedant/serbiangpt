@@ -124,28 +124,58 @@ def process_user_question(user_question, conversation1, conversation2, uploaded_
         st.session_state.chat_history.append({'human': user_question, 'AI': hybrid_response})
     else:
         st.session_state.chat_history[-1]['AI'] = hybrid_response
-
 def display_chat_history():
     """Displays the chat history in the sidebar with copy-to-clipboard functionality."""
-    st.sidebar.subheader("Chat History" if st.session_state.language == 'English' else "Istorija razgovora", help = "Chats will only be stored for this session. If anything is important, please copy and save it elsewhere." if st.session_state.language == 'English' else "Razgovori će biti sačuvani samo za ovu sesiju. Ako je nešto važno, kopirajte i sačuvajte na drugom mestu.")
+    st.sidebar.subheader(
+        "Chat History" if st.session_state.language == 'English' else "Istorija razgovora",
+        help=(
+            "Chats will only be stored for this session. If anything is important, please copy and save it elsewhere."
+            if st.session_state.language == 'English'
+            else "Razgovori će biti sačuvani samo za ovu sesiju. Ako je nešto važno, kopirajte i sačuvajte na drugom mestu."
+        ),
+    )
 
+    # Iterate through chat history and display each message
     for i, message in enumerate(st.session_state.chat_history):
         st.sidebar.markdown(f"🧑 **You:** {message['human']}")
 
-        # Display AI response in a text area
+        # Display AI response in a text box with inline copy button
         response_key = f"response_{i}"  # Unique key for each text area
         ai_response = message['AI']
-        response_container = st.sidebar.text_area(
-            label=f" 🤖 **AI:** ",
-            value=ai_response,
-            key=response_key,
-            height=100,
+        st.sidebar.markdown(
+            f"""
+            <div style="position: relative; margin-bottom: 10px;">
+                <textarea id="copy-target-{i}" style="width: 100%; height: 100px; padding-right: 40px;">{ai_response}</textarea>
+                <button onclick="copyToClipboard('copy-target-{i}')" style="
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    background-color: #f0f0f0;
+                    border: none;
+                    cursor: pointer;
+                    padding: 5px 10px;
+                ">📋</button>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
-        # Add a "Copy to Clipboard" button for the text area
-        if st.sidebar.button(f"📝 Copy to Clipboard"):
-            pyperclip.copy(response_container)
-            st.sidebar.success("Copied to clipboard!" if st.session_state.language == 'English' else "Kopirano u međuspremnik!")
+    # Add JavaScript for the copy-to-clipboard functionality
+    st.sidebar.markdown(
+        """
+        <script>
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).value;
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Copied to clipboard!");
+            }).catch(err => {
+                console.error("Failed to copy: ", err);
+            });
+        }
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
 
 def display_image_upload_options():
     """Display options for selecting between camera and file uploads."""
