@@ -129,7 +129,7 @@ def display_image_upload_options():
     """Display options for camera and file uploads."""
     st.markdown("**📷 Click to Open Camera for Image Capture**")
     if st.button("Open Camera"):
-        # Embedding custom JS to open the camera in full-screen
+        # Embedding custom JS to open the camera in full-screen with front/back switch functionality
         components.html("""
             <style>
                 #camera-container {
@@ -144,19 +144,73 @@ def display_image_upload_options():
                     height: 100%;
                     object-fit: cover;
                 }
+                #controls {
+                    position: absolute;
+                    top: 10px;
+                    left: 10px;
+                    color: white;
+                }
+                #photo-button {
+                    position: absolute;
+                    bottom: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    padding: 10px;
+                    background-color: rgba(0, 0, 0, 0.7);
+                    color: white;
+                    border-radius: 5px;
+                    cursor: pointer;
+                }
             </style>
             <div id="camera-container">
                 <video id="video" autoplay></video>
+                <div id="controls">
+                    <button id="switch-camera" style="background-color: rgba(0, 0, 0, 0.7); color: white; padding: 10px; cursor: pointer;">Switch Camera</button>
+                </div>
+                <button id="photo-button" onclick="takePhoto()">Take Photo</button>
             </div>
             <script>
-                const videoElement = document.getElementById('video');
-                navigator.mediaDevices.getUserMedia({ video: true })
-                    .then((stream) => {
-                        videoElement.srcObject = stream;
-                    })
-                    .catch((err) => {
-                        alert("Unable to access camera: " + err.message);
+                let videoElement = document.getElementById('video');
+                let switchCameraButton = document.getElementById('switch-camera');
+                let currentStream = null;
+                let isFrontCamera = false;
+
+                // Initialize the camera
+                function startCamera() {
+                    navigator.mediaDevices.enumerateDevices().then(devices => {
+                        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                        if (videoDevices.length > 0) {
+                            const constraints = { video: { facingMode: isFrontCamera ? 'user' : 'environment' } };
+                            navigator.mediaDevices.getUserMedia(constraints)
+                                .then((stream) => {
+                                    if (currentStream) {
+                                        currentStream.getTracks().forEach(track => track.stop());
+                                    }
+                                    currentStream = stream;
+                                    videoElement.srcObject = stream;
+                                }).catch((err) => {
+                                    alert("Unable to access camera: " + err.message);
+                                });
+                        }
                     });
+                }
+
+                function takePhoto() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    alert("Photo captured! Data URL: " + dataUrl);
+                }
+
+                switchCameraButton.addEventListener('click', () => {
+                    isFrontCamera = !isFrontCamera;
+                    startCamera();
+                });
+
+                startCamera();
             </script>
         """, height=600)
 
@@ -166,6 +220,7 @@ def display_image_upload_options():
     uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
 
     return uploaded_file_camera, uploaded_file
+
 
 def main():
     # URL to the public JSON credentials file hosted on Google Cloud Storage
