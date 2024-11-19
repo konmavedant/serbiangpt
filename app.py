@@ -125,12 +125,54 @@ def display_chat_history():
 
 def display_image_upload_options():
     """Display options for camera and file uploads."""
-    st.markdown("**📷 Use Camera to Capture Image**")
-    uploaded_file_camera = st.camera_input("Click Photo" if st.session_state.language == 'English' else "Kliknite fotografiju")
-    st.markdown("**🖼️ Or Upload Image File**")
-    uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
+    st.markdown("**Use Camera to Capture Image or Upload Image File**" if st.session_state.language == 'English' else "**Koristite kameru za snimanje slike ili otpremite fajl slike**" )
+
+    # Create two columns with equal width (adjusted to fit on mobile screens)
+    col1, col2 = st.columns([1, 1])
+
+    # Button for opening camera
+    with col1:
+        open_camera_button = st.button("📸 Open Camera" if st.session_state.language == 'English' else "📸 Otvorite kameru")
+
+    # Button for uploading file
+    with col2:
+        upload_file_button = st.button("📁 Upload File" if st.session_state.language == 'English' else "📁 Otpremite fajl")
+
+    # Initialize variables for image capture and upload
+    uploaded_file_camera = None
+    uploaded_file = None
+
+    # If "Open Camera" button is clicked, display camera input
+    if open_camera_button:
+        uploaded_file_camera = st.camera_input("Click Photo" if st.session_state.language == 'English' else "Kliknite fotografiju")
+
+    # If "Upload File" button is clicked, display file uploader
+    elif upload_file_button:
+        uploaded_file = st.file_uploader("Choose an image file" if st.session_state.language == 'English' else "Odaberite fajl slike", type=["jpg", "jpeg", "png"])
 
     return uploaded_file_camera, uploaded_file
+
+# Custom CSS to ensure responsiveness
+st.markdown(
+    """
+    <style>
+        /* Ensure buttons remain side-by-side on small screens */
+        @media (max-width: 600px) {
+            .stButton>button {
+                width: 100%;
+            }
+        }
+
+        /* Adjust column layout on smaller screens for better appearance */
+        .stButton {
+            display: inline-block;
+            width: auto;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 
 def main():
     # URL to the public JSON credentials file hosted on Google Cloud Storage
@@ -153,9 +195,9 @@ def main():
     title_text = "Srpski.AI 📸"
     st.title(title_text)
     welcome_text = (
-        "Translate any photo from Serbian to English or vice versa and chat with Srpski.AI!"
+        "Translate any photo from Serbian to English and chat with Srpski.AI!"
         if st.session_state.language == 'English'
-        else "Prevedite bilo koju fotografiju sa srpskog na engleski ili obrnuto i razgovarajte sa Srpski.AI!"
+        else "Prevedite bilo koju fotografiju sa srpskog na engleski i razgovarajte sa Srpski.AI!"
     )
     st.markdown(welcome_text)
 
@@ -166,6 +208,7 @@ def main():
     # Display options for image upload
     uploaded_file_camera, uploaded_file = display_image_upload_options()
 
+    # Process the image if it's captured or uploaded
     if uploaded_file_camera is not None:
         with st.spinner("Processing image for text..." if st.session_state.language == 'English' else "Obrada slike za tekst..."):
             temp_path = f"temp_{uploaded_file_camera.name}"
