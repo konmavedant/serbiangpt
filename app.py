@@ -128,8 +128,13 @@ def display_chat_history():
 def display_image_upload_options():
     """Display options for camera and file uploads."""
     st.markdown("**📷 Click to Open Camera for Image Capture**")
+    
+    # Initialize uploaded_file_camera as None
+    uploaded_file_camera = None
+
+    # Show button to open the camera with custom JS
     if st.button("Open Camera"):
-        # Embedding custom JS to open the camera in full-screen with front/back switch functionality
+        # Embedding custom JS to open the camera in full-screen
         components.html("""
             <style>
                 #camera-container {
@@ -144,83 +149,77 @@ def display_image_upload_options():
                     height: 100%;
                     object-fit: cover;
                 }
-                #controls {
+                #take-photo-button {
                     position: absolute;
-                    top: 10px;
-                    left: 10px;
-                    color: white;
-                }
-                #photo-button {
-                    position: absolute;
-                    bottom: 20px;
+                    bottom: 10%;
                     left: 50%;
                     transform: translateX(-50%);
-                    padding: 10px;
-                    background-color: rgba(0, 0, 0, 0.7);
+                    padding: 10px 20px;
+                    background-color: #4CAF50;
                     color: white;
+                    font-size: 20px;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                }
+                #switch-camera-button {
+                    position: absolute;
+                    bottom: 20%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    padding: 10px 20px;
+                    background-color: #2196F3;
+                    color: white;
+                    font-size: 20px;
+                    border: none;
                     border-radius: 5px;
                     cursor: pointer;
                 }
             </style>
             <div id="camera-container">
                 <video id="video" autoplay></video>
-                <div id="controls">
-                    <button id="switch-camera" style="background-color: rgba(0, 0, 0, 0.7); color: white; padding: 10px; cursor: pointer;">Switch Camera</button>
-                </div>
-                <button id="photo-button" onclick="takePhoto()">Take Photo</button>
+                <button id="take-photo-button">Take Photo</button>
+                <button id="switch-camera-button">Switch Camera</button>
             </div>
             <script>
+                let currentStream;
                 let videoElement = document.getElementById('video');
-                let switchCameraButton = document.getElementById('switch-camera');
-                let currentStream = null;
-                let isFrontCamera = false;
-
-                // Initialize the camera
+                const takePhotoButton = document.getElementById('take-photo-button');
+                const switchCameraButton = document.getElementById('switch-camera-button');
+                let facingMode = 'user'; // Start with front camera
+                
+                // Access the camera
                 function startCamera() {
-                    navigator.mediaDevices.enumerateDevices().then(devices => {
-                        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                        if (videoDevices.length > 0) {
-                            const constraints = { video: { facingMode: isFrontCamera ? 'user' : 'environment' } };
-                            navigator.mediaDevices.getUserMedia(constraints)
-                                .then((stream) => {
-                                    if (currentStream) {
-                                        currentStream.getTracks().forEach(track => track.stop());
-                                    }
-                                    currentStream = stream;
-                                    videoElement.srcObject = stream;
-                                }).catch((err) => {
-                                    alert("Unable to access camera: " + err.message);
-                                });
-                        }
-                    });
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } })
+                        .then((stream) => {
+                            currentStream = stream;
+                            videoElement.srcObject = stream;
+                        })
+                        .catch((err) => {
+                            alert("Unable to access camera: " + err.message);
+                        });
                 }
+                
+                startCamera();
 
-                function takePhoto() {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = videoElement.videoWidth;
-                    canvas.height = videoElement.videoHeight;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-                    const dataUrl = canvas.toDataURL('image/png');
-                    alert("Photo captured! Data URL: " + dataUrl);
-                }
-
+                // Switch between front and back camera
                 switchCameraButton.addEventListener('click', () => {
-                    isFrontCamera = !isFrontCamera;
+                    facingMode = (facingMode === 'user') ? 'environment' : 'user';
+                    currentStream.getTracks().forEach(track => track.stop());
                     startCamera();
                 });
 
-                startCamera();
+                // Take a photo (for demonstration purposes, you can add functionality here)
+                takePhotoButton.addEventListener('click', () => {
+                    alert("Photo captured (you can add functionality to process the image)");
+                });
             </script>
         """, height=600)
 
-    uploaded_file_camera = None  # Initially, no image captured
+    # Streamlit file uploader for image file uploads
+    uploaded_file = st.file_uploader("🖼️ Or Upload Image File", type=["jpg", "jpeg", "png"])
 
-    st.markdown("**🖼️ Or Upload Image File**")
-    uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
-
-    return uploaded_file_camera, uploaded_file
-
+    return uploaded_file
 
 def main():
     # URL to the public JSON credentials file hosted on Google Cloud Storage
@@ -253,14 +252,17 @@ def main():
     display_chat_history()
     st.divider()
 
-    # Display options for image upload
-    uploaded_file_camera, uploaded_file = display_image_upload_options()
+    # Display options for image upload (camera or file upload)
+    uploaded_file = display_image_upload_options()  # Only unpack a single value
 
-    if uploaded_file_camera is not None:
+    if uploaded_file is None:
+        st.info("No image uploaded yet. Please upload an image using the file uploader.")
+    
+    if uploaded_file is not None:
         with st.spinner("Processing image for text..." if st.session_state.language == 'English' else "Obrada slike za tekst..."):
-            temp_path = f"temp_{uploaded_file_camera.name}"
+            temp_path = f"temp_{uploaded_file.name}"
             with open(temp_path, "wb") as f:
-                f.write(uploaded_file_camera.getbuffer())
+                f.write(uploaded_file.getbuffer())
             try:
                 ocr_text, translated_text, detected_language, target_language = perform_ocr_with_vision_api(temp_path, credentials)
                 
