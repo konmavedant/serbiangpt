@@ -11,7 +11,7 @@ from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
 import requests
 import streamlit.components.v1 as components
-
+import pyperclip
 
 # Ensure consistent language detection
 DetectorFactory.seed = 0
@@ -21,6 +21,14 @@ dotenv.load_dotenv(dotenv.find_dotenv())
 
 # Streamlit page settings
 st.set_page_config(page_title="Srpski.AI", page_icon="📸")
+hide_menu_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_menu_style, unsafe_allow_html=True)
 
 def load_credentials_from_url(json_url):
     """Load service account credentials from a URL."""
@@ -118,25 +126,87 @@ def process_user_question(user_question, conversation1, conversation2, uploaded_
         st.session_state.chat_history[-1]['AI'] = hybrid_response
 
 def display_chat_history():
-    """Displays the chat history in the sidebar.""" 
-    st.sidebar.subheader("Chat History" if st.session_state.language == 'English' else "Istorija razgovora")
-    for message in st.session_state.chat_history:
-        st.sidebar.markdown(f"🧑 You: {message['human']}")
-        if message['AI']:
-            st.sidebar.markdown(f"🤖 AI: {message['AI']}\n")
+    """Displays the chat history in the sidebar with copy-to-clipboard functionality."""
+    st.sidebar.subheader("Chat History" if st.session_state.language == 'English' else "Istorija razgovora", help = "Chats will only be stored for this session. If anything is important, please copy and save it elsewhere." if st.session_state.language == 'English' else "Razgovori će biti sačuvani samo za ovu sesiju. Ako je nešto važno, kopirajte i sačuvajte na drugom mestu.")
+
+    for i, message in enumerate(st.session_state.chat_history):
+        st.sidebar.markdown(f"🧑 **You:** {message['human']}")
+
+        # Display AI response in a text area
+        response_key = f"response_{i}"  # Unique key for each text area
+        ai_response = message['AI']
+        response_container = st.sidebar.text_area(
+            label=f" 🤖 **AI:** ",
+            value=ai_response,
+            key=response_key,
+            height=100,
+        )
+
+        # Add a "Copy to Clipboard" button for the text area
+        if st.sidebar.button(f"📝 Copy to Clipboard"):
+            pyperclip.copy(response_container)
+            st.sidebar.success("Copied to clipboard!" if st.session_state.language == 'English' else "Kopirano u međuspremnik!")
 
 def display_image_upload_options():
-    """Display options for camera and file uploads."""
-    st.markdown("📷 Click to Open Camera for Image Capture")
+    """Display options for selecting between camera and file uploads."""
+    st.markdown("**📷 Choose an Option for Image Capture**" if st.session_state.language == 'English' else "📷 Izaberite opciju za snimanje slike", help = "You can either click a photo using your camera or upload an existing image from your device." if st.session_state.language == 'English' else "Možete ili snimiti fotografiju kamerom ili preneti postojeću sliku sa svog uređaja.")
 
-    # Using Streamlit's default camera input widget
-    uploaded_file_camera = st.camera_input("Click to take a photo")
+    # Create two buttons side-by-side using columns
+    col1, col2 = st.columns([1, 1])
 
-    # Option to upload a file
-    st.markdown("🖼 Or Upload Image File")
-    uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
+    # Initialize session state variables to track selection
+    if 'show_camera' not in st.session_state:
+        st.session_state.show_camera = False
+    if 'show_uploader' not in st.session_state:
+        st.session_state.show_uploader = False
+
+    # Camera button
+    with col1:
+        if st.button("📸 Open Camera" if st.session_state.language == 'English' else "📸 Otvori Kameru"):
+            st.session_state.show_camera = True
+            st.session_state.show_uploader = False
+
+    # File uploader button
+    with col2:
+        if st.button("📁 Upload File" if st.session_state.language == 'English' else "📁 Otpremi Fajl"):
+            st.session_state.show_camera = False
+            st.session_state.show_uploader = True
+
+    # Display camera input or file uploader based on selection
+    uploaded_file_camera = None
+    uploaded_file = None
+
+    if st.session_state.show_camera:
+        st.markdown("**📸 Use Camera to Capture Image**" if st.session_state.language == 'English' else "**📸 Koristite kameru za snimanje slike**")
+        uploaded_file_camera = st.camera_input("Click to take a photo" if st.session_state.language == 'English' else "Kliknite da uslikate")
+
+    if st.session_state.show_uploader:
+        st.markdown("**📁 Upload Image File**" if st.session_state.language == 'English' else "**📁 Otpremi sliku**")
+        uploaded_file = st.file_uploader("Choose an image file" if st.session_state.language == 'English' else "Izaberite fajl sa slikom", type=["jpg", "jpeg", "png"])
 
     return uploaded_file_camera, uploaded_file
+
+st.markdown(
+    """
+    <style>
+        /* Ensure buttons remain side-by-side on small screens */
+        @media (max-width: 600px) {
+            .stButton>button {
+                width: 100%;
+            }
+        }
+
+        /* Adjust column layout on smaller screens for better appearance */
+        .stButton {
+            display: inline-block;
+            width: auto;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
 
 
 def main():
@@ -173,42 +243,44 @@ def main():
     # Display options for image upload
     uploaded_file_camera, uploaded_file = display_image_upload_options()
 
-    if uploaded_file_camera is not None:
-        with st.spinner("Processing image for text..." if st.session_state.language == 'English' else "Obrada slike za tekst..."):
-            temp_path = f"temp_{uploaded_file_camera.name}"
-            with open(temp_path, "wb") as f:
-                f.write(uploaded_file_camera.getbuffer())
-            try:
-                ocr_text, translated_text, detected_language, target_language = perform_ocr_with_vision_api(temp_path, credentials)
-                
-                st.session_state.ocr_text = translated_text
-                st.success(
-                    f"Text detected in {detected_language.capitalize()} and translated to {target_language.capitalize()}!"
-                    if st.session_state.language == 'English'
-                    else f"Tekst prepoznat na {detected_language.capitalize()} i preveden na {target_language.capitalize()}!"
-                )
-                st.markdown(f"Extracted Text ({detected_language.capitalize()}): {ocr_text}\n\n*Translated to {target_language.capitalize()}:* {translated_text}")
-            finally:
-                os.remove(temp_path)
+    # Handle image processing
+    if uploaded_file_camera is not None or uploaded_file is not None:
+        uploaded_file = uploaded_file_camera or uploaded_file
 
-    elif uploaded_file is not None:
         with st.spinner("Processing image for text..." if st.session_state.language == 'English' else "Obrada slike za tekst..."):
             temp_path = f"temp_{uploaded_file.name}"
             with open(temp_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             try:
+                # Perform OCR
                 ocr_text, translated_text, detected_language, target_language = perform_ocr_with_vision_api(temp_path, credentials)
                 
+                # Append OCR results to chat history
+                user_action = "Uploaded Image for OCR Translation"
+                st.session_state.chat_history.append({
+                    "human": user_action,
+                    "AI": (
+                        f"**Detected Text ({detected_language.capitalize()}):** {ocr_text}\n\n"
+                        f"**Translated to {target_language.capitalize()}:** {translated_text}"
+                    )
+                })
+
+                # Display chat response for OCR result
+                with st.chat_message("user"):
+                    st.markdown(user_action)
+                with st.chat_message("assistant"):
+                    st.markdown(
+                        f"**Detected Text ({detected_language.capitalize()}):** {ocr_text}\n\n"
+                        f"**Translated to {target_language.capitalize()}:** {translated_text}"
+                    )
+
+                # Save translated text to session state for further use
                 st.session_state.ocr_text = translated_text
-                st.success(
-                    f"Text detected in {detected_language.capitalize()} and translated to {target_language.capitalize()}!"
-                    if st.session_state.language == 'English'
-                    else f"Tekst prepoznat na {detected_language.capitalize()} i preveden na {target_language.capitalize()}!"
-                )
-                st.markdown(f"Extracted Text ({detected_language.capitalize()}): {ocr_text}\n\n*Translated to {target_language.capitalize()}:* {translated_text}")
+
             finally:
                 os.remove(temp_path)
 
+    # Handle user question input
     if user_question := st.chat_input("Ask Questions" if st.session_state.language == 'English' else "Postavite pitanja"):
         if not st.session_state.chat_history or st.session_state.chat_history[-1]["human"] != user_question:
             st.session_state.chat_history.append({"human": user_question, "AI": ""})
