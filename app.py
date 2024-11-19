@@ -1,7 +1,7 @@
 import os
 import json
 import streamlit as st
-from google.cloud import vision, secretmanager
+from google.cloud import vision
 from google.oauth2 import service_account
 import dotenv
 from langchain.chains import ConversationChain
@@ -9,6 +9,7 @@ from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain_groq import ChatGroq
 from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
+import requests
 
 # Ensure consistent language detection
 DetectorFactory.seed = 0
@@ -19,18 +20,18 @@ dotenv.load_dotenv(dotenv.find_dotenv())
 # Streamlit page settings
 st.set_page_config(page_title="Serbian GPT", page_icon="💫")
 
-def fetch_credentials_from_secret_manager(project_id, secret_id):
+def load_credentials_from_url(json_url):
     """
-    Fetch service account credentials JSON from Google Secret Manager and return a credentials object.
+    Load service account credentials from a URL.
     """
-    client = secretmanager.SecretManagerServiceClient()
-    secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-    response = client.access_secret_version(request={"name": secret_name}, timeout=60)
-    credentials_json = response.payload.data.decode("UTF-8")
-
-    # Parse the credentials JSON into a credentials object
-    credentials = service_account.Credentials.from_service_account_info(json.loads(credentials_json))
-    return credentials
+    try:
+        response = requests.get(json_url)
+        response.raise_for_status()  # Ensure the request was successful
+        credentials_json = response.json()  # Parse the JSON content
+        credentials = service_account.Credentials.from_service_account_info(credentials_json)
+        return credentials
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"Failed to load credentials from URL: {e}")
 
 def initialize_session_state():
     """Initialize Streamlit session state variables."""
@@ -128,10 +129,14 @@ def display_chat_history():
             st.sidebar.markdown(f"🤖 AI: {message['AI']}\n")
 
 def main():
-    # Fetch credentials directly from Secret Manager
-    project_id = "gentle-impulse-442016-m5"  # Replace with your GCP project ID
-    secret_id = "gcloud-credentials"   # Replace with your secret name
-    credentials = fetch_credentials_from_secret_manager(project_id, secret_id)
+    # URL to the public JSON credentials file hosted on Google Cloud Storage
+    credentials_url = "https://storage.googleapis.com/serbia-gpt/gentle-impulse-442016-m5-685a326dc711.json"
+    
+    try:
+        credentials = load_credentials_from_url(credentials_url)
+    except Exception as e:
+        st.error(f"Error loading credentials: {e}")
+        return
 
     # Initialize session state
     initialize_session_state()
