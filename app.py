@@ -18,16 +18,14 @@ DetectorFactory.seed = 0
 dotenv.load_dotenv(dotenv.find_dotenv())
 
 # Streamlit page settings
-st.set_page_config(page_title="Serbian GPT", page_icon="💫")
+st.set_page_config(page_title="Srpski.AI", page_icon="📸")
 
 def load_credentials_from_url(json_url):
-    """
-    Load service account credentials from a URL.
-    """
+    """Load service account credentials from a URL."""
     try:
         response = requests.get(json_url)
-        response.raise_for_status()  # Ensure the request was successful
-        credentials_json = response.json()  # Parse the JSON content
+        response.raise_for_status()
+        credentials_json = response.json()
         credentials = service_account.Credentials.from_service_account_info(credentials_json)
         return credentials
     except requests.exceptions.RequestException as e:
@@ -105,16 +103,13 @@ def process_user_question(user_question, conversation1, conversation2, uploaded_
         user_question_for_model = "Molim vas, odgovarajte na srpskom: " + user_question
 
     if uploaded_image and ocr_text:
-        # Use the OCR translated text as the bot's response
         user_question_for_model += f" (Tekst iz slike: {ocr_text})"
 
     response1 = conversation1(user_question_for_model).get('response', '').strip()
     response2 = conversation2(user_question_for_model).get('response', '').strip()
 
-    # Merge the two responses into a hybrid response
     hybrid_response = response1 if response1 == response2 else f"{response1} {response2}"
 
-    # Add conversation to history
     if not st.session_state.chat_history or st.session_state.chat_history[-1]['human'] != user_question:
         st.session_state.chat_history.append({'human': user_question, 'AI': hybrid_response})
     else:
@@ -127,6 +122,15 @@ def display_chat_history():
         st.sidebar.markdown(f"🧑 You: {message['human']}")
         if message['AI']:
             st.sidebar.markdown(f"🤖 AI: {message['AI']}\n")
+
+def display_image_upload_options():
+    """Display options for camera and file uploads."""
+    st.markdown("**📷 Use Camera to Capture Image**")
+    uploaded_file_camera = st.camera_input("Click Photo" if st.session_state.language == 'English' else "Kliknite fotografiju")
+    st.markdown("**🖼️ Or Upload Image File**")
+    uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
+
+    return uploaded_file_camera, uploaded_file
 
 def main():
     # URL to the public JSON credentials file hosted on Google Cloud Storage
@@ -146,35 +150,54 @@ def main():
     st.session_state.language = 'Serbian' if language_toggle else 'English'
 
     # Set page title and instructions
-    title_text = "Serbia-GPT 💫" if st.session_state.language == 'English' else "Srbija-GPT 💫"
+    title_text = "Srpski.AI 📸"
     st.title(title_text)
-    welcome_text = "Chat with Serbia GPT, an ultra-fast AI chatbot!" if st.session_state.language == 'English' else "Razgovarajte sa Srbija GPT, izuzetno brzim AI četbotom!"
+    welcome_text = (
+        "Translate any photo from Serbian to English or vice versa and chat with Srpski.AI!"
+        if st.session_state.language == 'English'
+        else "Prevedite bilo koju fotografiju sa srpskog na engleski ili obrnuto i razgovarajte sa Srpski.AI!"
+    )
     st.markdown(welcome_text)
 
     memory = ConversationBufferWindowMemory(k=10)
     display_chat_history()
     st.divider()
 
-    uploaded_file = st.file_uploader("Upload an image" if st.session_state.language == 'English' else "Otpremi sliku", type=["jpeg", "jpg", "png"])
-    if uploaded_file is not None:
+    # Display options for image upload
+    uploaded_file_camera, uploaded_file = display_image_upload_options()
+
+    if uploaded_file_camera is not None:
         with st.spinner("Processing image for text..." if st.session_state.language == 'English' else "Obrada slike za tekst..."):
-            temp_path = f"temp_{uploaded_file.name}"
+            temp_path = f"temp_{uploaded_file_camera.name}"
             with open(temp_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+                f.write(uploaded_file_camera.getbuffer())
             try:
-                # Perform OCR and translation
                 ocr_text, translated_text, detected_language, target_language = perform_ocr_with_vision_api(temp_path, credentials)
                 
-                # Save translated text to session state
                 st.session_state.ocr_text = translated_text
-                
                 st.success(
                     f"Text detected in {detected_language.capitalize()} and translated to {target_language.capitalize()}!"
                     if st.session_state.language == 'English'
                     else f"Tekst prepoznat na {detected_language.capitalize()} i preveden na {target_language.capitalize()}!"
                 )
+                st.markdown(f"*Extracted Text ({detected_language.capitalize()}):* {ocr_text}\n\n*Translated to {target_language.capitalize()}:* {translated_text}")
+            finally:
+                os.remove(temp_path)
+
+    elif uploaded_file is not None:
+        with st.spinner("Processing image for text..." if st.session_state.language == 'English' else "Obrada slike za tekst..."):
+            temp_path = f"temp_{uploaded_file.name}"
+            with open(temp_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            try:
+                ocr_text, translated_text, detected_language, target_language = perform_ocr_with_vision_api(temp_path, credentials)
                 
-                # Display as a bot response
+                st.session_state.ocr_text = translated_text
+                st.success(
+                    f"Text detected in {detected_language.capitalize()} and translated to {target_language.capitalize()}!"
+                    if st.session_state.language == 'English'
+                    else f"Tekst prepoznat na {detected_language.capitalize()} i preveden na {target_language.capitalize()}!"
+                )
                 st.markdown(f"*Extracted Text ({detected_language.capitalize()}):* {ocr_text}\n\n*Translated to {target_language.capitalize()}:* {translated_text}")
             finally:
                 os.remove(temp_path)
