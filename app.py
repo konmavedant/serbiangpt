@@ -10,6 +10,8 @@ from langchain_groq import ChatGroq
 from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
 import requests
+import streamlit.components.v1 as components
+
 
 # Ensure consistent language detection
 DetectorFactory.seed = 0
@@ -19,15 +21,6 @@ dotenv.load_dotenv(dotenv.find_dotenv())
 
 # Streamlit page settings
 st.set_page_config(page_title="Srpski.AI", page_icon="📸")
-hide_menu_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    </style>
-"""
-st.markdown(hide_menu_style, unsafe_allow_html=True)
-
 
 def load_credentials_from_url(json_url):
     """Load service account credentials from a URL."""
@@ -101,7 +94,6 @@ def perform_ocr_with_vision_api(image_path, credentials):
 
     return ocr_text, translated_text, detected_language, target_language
 
-
 def initialize_conversation(groq_chat, memory):
     """Initialize conversation chain with memory."""
     return ConversationChain(llm=groq_chat, memory=memory)
@@ -135,53 +127,99 @@ def display_chat_history():
 
 def display_image_upload_options():
     """Display options for camera and file uploads."""
-    st.markdown("**📷 Use Camera to Capture Image or Upload Image File**")
+    st.markdown("📷 Click to Open Camera for Image Capture**")
+    if st.button("Open Camera"):
+        # Embedding custom JS to open the camera in full-screen with front/back switch functionality
+        components.html("""
+            <style>
+                #camera-container {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    background-color: black;
+                }
+                #camera-container video {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+                #controls {
+                    position: absolute;
+                    top: 10px;
+                    left: 10px;
+                    color: white;
+                }
+                #photo-button {
+                    position: absolute;
+                    bottom: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    padding: 10px;
+                    background-color: rgba(0, 0, 0, 0.7);
+                    color: white;
+                    border-radius: 5px;
+                    cursor: pointer;
+                }
+            </style>
+            <div id="camera-container">
+                <video id="video" autoplay></video>
+                <div id="controls">
+                    <button id="switch-camera" style="background-color: rgba(0, 0, 0, 0.7); color: white; padding: 10px; cursor: pointer;">Switch Camera</button>
+                </div>
+                <button id="photo-button" onclick="takePhoto()">Take Photo</button>
+            </div>
+            <script>
+                let videoElement = document.getElementById('video');
+                let switchCameraButton = document.getElementById('switch-camera');
+                let currentStream = null;
+                let isFrontCamera = false;
 
-    # Create two columns with equal width (adjusted to fit on mobile screens)
-    col1, col2 = st.columns([1, 1])
+                // Initialize the camera
+                function startCamera() {
+                    navigator.mediaDevices.enumerateDevices().then(devices => {
+                        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                        if (videoDevices.length > 0) {
+                            const constraints = { video: { facingMode: isFrontCamera ? 'user' : 'environment' } };
+                            navigator.mediaDevices.getUserMedia(constraints)
+                                .then((stream) => {
+                                    if (currentStream) {
+                                        currentStream.getTracks().forEach(track => track.stop());
+                                    }
+                                    currentStream = stream;
+                                    videoElement.srcObject = stream;
+                                }).catch((err) => {
+                                    alert("Unable to access camera: " + err.message);
+                                });
+                        }
+                    });
+                }
 
-    # Button for opening camera
-    with col1:
-        open_camera_button = st.button("Open Camera" if st.session_state.language == 'English' else "Otvorite kameru")
+                function takePhoto() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    alert("Photo captured! Data URL: " + dataUrl);
+                }
 
-    # Button for uploading file
-    with col2:
-        upload_file_button = st.button("Upload File" if st.session_state.language == 'English' else "Otpremite fajl")
+                switchCameraButton.addEventListener('click', () => {
+                    isFrontCamera = !isFrontCamera;
+                    startCamera();
+                });
 
-    # Initialize variables for image capture and upload
-    uploaded_file_camera = None
-    uploaded_file = None
+                startCamera();
+            </script>
+        """, height=600)
 
-    # If "Open Camera" button is clicked, display camera input
-    if open_camera_button:
-        uploaded_file_camera = st.camera_input("Click Photo" if st.session_state.language == 'English' else "Kliknite fotografiju")
+    uploaded_file_camera = None  # Initially, no image captured
 
-    # If "Upload File" button is clicked, display file uploader
-    elif upload_file_button:
-        uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
+    st.markdown("🖼 Or Upload Image File**")
+    uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
 
     return uploaded_file_camera, uploaded_file
-
-# Custom CSS to ensure responsiveness
-st.markdown(
-    """
-    <style>
-        /* Ensure buttons remain side-by-side on small screens */
-        @media (max-width: 600px) {
-            .stButton>button {
-                width: 100%;
-            }
-        }
-
-        /* Adjust column layout on smaller screens for better appearance */
-        .stButton {
-            display: inline-block;
-            width: auto;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
 
 
 def main():
@@ -205,9 +243,9 @@ def main():
     title_text = "Srpski.AI 📸"
     st.title(title_text)
     welcome_text = (
-        "Translate any photo from Serbian to English and chat with Srpski.AI!"
+        "Translate any photo from Serbian to English or vice versa and chat with Srpski.AI!"
         if st.session_state.language == 'English'
-        else "Prevedite bilo koju fotografiju sa srpskog na engleski i razgovarajte sa Srpski.AI!"
+        else "Prevedite bilo koju fotografiju sa srpskog na engleski ili obrnuto i razgovarajte sa Srpski.AI!"
     )
     st.markdown(welcome_text)
 
@@ -218,7 +256,6 @@ def main():
     # Display options for image upload
     uploaded_file_camera, uploaded_file = display_image_upload_options()
 
-    # Process the image if it's captured or uploaded
     if uploaded_file_camera is not None:
         with st.spinner("Processing image for text..." if st.session_state.language == 'English' else "Obrada slike za tekst..."):
             temp_path = f"temp_{uploaded_file_camera.name}"
@@ -233,7 +270,7 @@ def main():
                     if st.session_state.language == 'English'
                     else f"Tekst prepoznat na {detected_language.capitalize()} i preveden na {target_language.capitalize()}!"
                 )
-                st.markdown(f"*Extracted Text ({detected_language.capitalize()}):* {ocr_text}\n\n*Translated to {target_language.capitalize()}:* {translated_text}")
+                st.markdown(f"Extracted Text ({detected_language.capitalize()}): {ocr_text}\n\n*Translated to {target_language.capitalize()}:* {translated_text}")
             finally:
                 os.remove(temp_path)
 
@@ -251,7 +288,7 @@ def main():
                     if st.session_state.language == 'English'
                     else f"Tekst prepoznat na {detected_language.capitalize()} i preveden na {target_language.capitalize()}!"
                 )
-                st.markdown(f"*Extracted Text ({detected_language.capitalize()}):* {ocr_text}\n\n*Translated to {target_language.capitalize()}:* {translated_text}")
+                st.markdown(f"Extracted Text ({detected_language.capitalize()}): {ocr_text}\n\n*Translated to {target_language.capitalize()}:* {translated_text}")
             finally:
                 os.remove(temp_path)
 
