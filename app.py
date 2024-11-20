@@ -1,5 +1,4 @@
 import os
-import json
 import streamlit as st
 from google.cloud import vision
 from google.oauth2 import service_account
@@ -11,7 +10,7 @@ from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
 import requests
 import streamlit.components.v1 as components
-import pyperclip
+
 
 # Ensure consistent language detection
 DetectorFactory.seed = 0
@@ -106,20 +105,26 @@ def initialize_conversation(groq_chat, memory):
     """Initialize conversation chain with memory."""
     return ConversationChain(llm=groq_chat, memory=memory)
 
-def process_user_question(user_question, conversation1, conversation2, uploaded_image=None, ocr_text=""):
+def process_user_question(user_question, conversation1, conversation2, uploaded_image=None, ocr_text=""): 
     """Processes the user question and generates a hybrid response."""
-    user_question_for_model = user_question
+    # Always prefix user questions with a directive to answer in Serbian if the toggle is on
     if st.session_state.language == 'Serbian':
-        user_question_for_model = "Molim vas, odgovarajte na srpskom: " + user_question
+        user_question_for_model = f"Molim vas, odgovarajte na srpskom: {user_question}"
+    else:
+        user_question_for_model = user_question
 
+    # Append OCR text if available
     if uploaded_image and ocr_text:
         user_question_for_model += f" (Tekst iz slike: {ocr_text})"
 
+    # Get responses from both conversation models
     response1 = conversation1(user_question_for_model).get('response', '').strip()
     response2 = conversation2(user_question_for_model).get('response', '').strip()
 
+    # Generate hybrid response
     hybrid_response = response1 if response1 == response2 else f"{response1} {response2}"
 
+    # Append the conversation to chat history
     if not st.session_state.chat_history or st.session_state.chat_history[-1]['human'] != user_question:
         st.session_state.chat_history.append({'human': user_question, 'AI': hybrid_response})
     else:
@@ -127,6 +132,29 @@ def process_user_question(user_question, conversation1, conversation2, uploaded_
 
 def display_chat_history():
     """Displays the chat history in the sidebar with a copy-to-clipboard option for AI responses."""
+    
+    # Custom CSS to style the sidebar and code block
+    st.markdown(
+        """
+        <style>
+        /* Custom CSS for the sidebar and code block */
+        .sidebar .code {
+            width: 100% !important; /* Full width inside the sidebar */
+            height: auto !important; /* Adjust height based on content */
+            white-space: pre-wrap; /* Ensures text wrapping */
+            word-wrap: break-word; /* Break words to fit the box */
+            background-color: #f7f7f7; /* Light background */
+            padding: 10px; /* Space around text */
+            border-radius: 8px; /* Rounded corners */
+            font-family: 'Courier New', monospace; /* Monospace font */
+            font-size: 14px; /* Adjust the font size */
+            overflow-x: auto; /* Horizontal scroll if the text is too wide */
+        }
+        </style>
+        """, unsafe_allow_html=True
+    )
+    
+    # Display Chat History
     st.sidebar.subheader(
         "Chat History" if st.session_state.language == 'English' else "Istorija razgovora",
         help=(
@@ -143,7 +171,9 @@ def display_chat_history():
         # Display AI response with copy-to-clipboard option
         ai_response = message['AI']
         st.sidebar.markdown("🤖 **AI Response:**")
-        st.sidebar.code(ai_response, language="text") 
+        
+        # Code block with custom CSS styles applied
+        st.sidebar.code(ai_response, language="text")
 
 
 def display_image_upload_options():
@@ -205,13 +235,10 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-
-
-
 def main():
     # URL to the public JSON credentials file hosted on Google Cloud Storage
     credentials_url = "https://storage.googleapis.com/serbia-gpt/gentle-impulse-442016-m5-685a326dc711.json"
-    
+
     try:
         credentials = load_credentials_from_url(credentials_url)
     except Exception as e:
@@ -253,7 +280,7 @@ def main():
             try:
                 # Perform OCR
                 ocr_text, translated_text, detected_language, target_language = perform_ocr_with_vision_api(temp_path, credentials)
-                
+
                 # Append OCR results to chat history
                 user_action = "Uploaded Image for OCR Translation"
                 st.session_state.chat_history.append({
@@ -280,7 +307,7 @@ def main():
                 os.remove(temp_path)
 
     # Handle user question input
-    if user_question := st.chat_input("Ask Questions" if st.session_state.language == 'English' else "Postavite pitanja"):
+    if user_question := st.chat_input("😇 Ask Questions" if st.session_state.language == 'English' else "😇 Postavite pitanja"):
         if not st.session_state.chat_history or st.session_state.chat_history[-1]["human"] != user_question:
             st.session_state.chat_history.append({"human": user_question, "AI": ""})
         with st.chat_message("user"):
