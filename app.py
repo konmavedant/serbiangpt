@@ -126,7 +126,7 @@ def process_user_question(user_question, conversation1, conversation2, uploaded_
         st.session_state.chat_history[-1]['AI'] = hybrid_response
 
 def display_chat_history():
-    """Displays the chat history in the sidebar with copy-to-clipboard functionality."""
+    """Displays the chat history in the sidebar with a copy-to-clipboard option for AI responses."""
     st.sidebar.subheader(
         "Chat History" if st.session_state.language == 'English' else "Istorija razgovora",
         help=(
@@ -137,32 +137,13 @@ def display_chat_history():
     )
 
     for i, message in enumerate(st.session_state.chat_history):
-        st.sidebar.markdown(f"🧑 *You:* {message['human']}")
+        # Display user input
+        st.sidebar.markdown(f"🧑 **You:** {message['human']}")
 
-        # Display AI response in a text area
-        response_key = f"response_{i}"  # Unique key for each text area
+        # Display AI response with copy-to-clipboard option
         ai_response = message['AI']
-        response_container = st.sidebar.text_area(
-            label=f" 🤖 *AI:* ",
-            value=ai_response,
-            key=response_key,
-            height=100,
-        )
-
-        # Add a "Copy to Clipboard" button for the text area
-        copy_button_key = f"copy_button_{i}"  # Unique key for each button
-        if st.sidebar.button("📝 Copy to Clipboard", key=copy_button_key):
-            try:
-                pyperclip.copy(ai_response)  # Copy the AI response to clipboard
-                st.sidebar.success(
-                    "Copied to clipboard!" if st.session_state.language == 'English' else "Kopirano u međuspremnik!"
-                )
-            except pyperclip.PyperclipException:
-                st.sidebar.error(
-                    "Copying failed. Please try again."
-                    if st.session_state.language == 'English'
-                    else "Kopiranje nije uspelo. Pokušajte ponovo."
-                )
+        st.sidebar.markdown("🤖 **AI Response:**")
+        st.sidebar.code(ai_response, language="text") 
 
 
 def display_image_upload_options():
