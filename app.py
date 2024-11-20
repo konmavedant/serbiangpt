@@ -178,7 +178,7 @@ def display_chat_history():
 
 def display_image_upload_options():
     """Display options for selecting between camera and file uploads."""
-    st.markdown("📷 Choose an Option for Image Capture**" if st.session_state.language == 'English' else "📷 Izaberite opciju za snimanje slike", help = "You can either click a photo using your camera or upload an existing image from your device." if st.session_state.language == 'English' else "Možete ili snimiti fotografiju kamerom ili preneti postojeću sliku sa svog uređaja.")
+    st.markdown("**📷 Choose an Option for Image Capture**" if st.session_state.language == 'English' else "📷 Izaberite opciju za snimanje slike", help = "You can either click a photo using your camera or upload an existing image from your device." if st.session_state.language == 'English' else "Možete ili snimiti fotografiju kamerom ili preneti postojeću sliku sa svog uređaja.")
 
     # Create two buttons side-by-side using columns
     col1, col2 = st.columns([1, 1])
@@ -249,7 +249,7 @@ def main():
     initialize_session_state()
 
     # Streamlit UI for language toggle
-    language_toggle = st.toggle("Switch to Serbian")
+    language_toggle = st.toggle("Prebaci na Srpski")
     st.session_state.language = 'Serbian' if language_toggle else 'English'
 
     # Set page title and instructions
