@@ -306,7 +306,6 @@ st.markdown(
         margin-left: 0; /* Remove margin to align the icon properly */
     }
     .stButton > button:hover {
-        background-color: #7a92d8;  /* Darker background on hover */
         transform: scale(1.1);  /* Slight zoom effect on hover */
     }
     </style>
