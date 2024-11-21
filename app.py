@@ -30,6 +30,39 @@ hide_menu_style = """
 """
 st.markdown(hide_menu_style, unsafe_allow_html=True)
 
+# Initialize login state
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "credentials_verified" not in st.session_state:
+    st.session_state.credentials_verified = False
+
+# Default credentials
+DEFAULT_USERNAME = "user_name"
+DEFAULT_PASSWORD = "user@123"
+
+def login():
+    """Display the login content with Verify and Login buttons."""
+    st.title("Login to Srpski.AI")
+    
+    username = st.text_input("Username", key="login_username")
+    password = st.text_input("Password", type="password", key="login_password")
+
+    # Verify button
+    if st.button("Verify"):
+        if username == DEFAULT_USERNAME and password == DEFAULT_PASSWORD:
+            st.session_state.credentials_verified = True
+            st.success("Valid credentials!")
+        else:
+            st.session_state.credentials_verified = False
+            st.error("Invalid username or password")
+
+    # Login button (enabled only if credentials are verified)
+    if st.session_state.credentials_verified:
+        if st.button("Login"):
+            st.session_state.logged_in = True
+
+
 def load_credentials_from_url(json_url):
     """Load service account credentials from a URL."""
     try:
@@ -325,7 +358,7 @@ if ms.themes["refreshed"] == False:
     ms.themes["refreshed"] = True
     st.rerun()
 
-def main():
+def main_app():
 
     # URL to the public JSON credentials file hosted on Google Cloud Storage
     credentials_url = "https://storage.googleapis.com/serbia-gpt/gentle-impulse-442016-m5-685a326dc711.json"
@@ -408,6 +441,13 @@ def main():
         ai_response = st.session_state.chat_history[-1]["AI"]
         with st.chat_message("assistant"):
             st.markdown(ai_response)
+
+def main():
+    """Main function to render the app."""
+    if st.session_state.logged_in:
+        main_app()  # Show main app content
+    else:
+        login()  # Show login page
 
 if __name__ == "__main__":
     main()
