@@ -244,7 +244,7 @@ if "themes" not in ms:
                     "light": {"theme.base": "dark",
                               "theme.backgroundColor": "black",
                               "theme.primaryColor": "#c98bdb",
-                              "theme.secondaryBackgroundColor": "#5591f5",
+                              "theme.secondaryBackgroundColor": "#D3D3D3",
                               "theme.textColor": "white",
                               "theme.textColor": "white",
                               "button_face": "🌜",
@@ -253,7 +253,7 @@ if "themes" not in ms:
                     "dark":  {"theme.base": "light",
                               "theme.backgroundColor": "white",
                               "theme.primaryColor": "#5591f5",
-                              "theme.secondaryBackgroundColor": "#82E1D7",
+                              "theme.secondaryBackgroundColor": "#D3D3D3",
                               "theme.textColor": "#0a1464",
                               "button_face": "🌞"},
                     }
@@ -268,13 +268,48 @@ def ChangeTheme():
   ms.themes["refreshed"] = False
   if previous_theme == "dark": ms.themes["current_theme"] = "light"
   elif previous_theme == "light": ms.themes["current_theme"] = "dark"
+  
+# Add custom CSS to style and position the button
+st.markdown(
+    """
+    <style>
+    .theme-button {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 9999;
+        border: none;
+        background-color: #5591f5;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 50%;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+    }
+    .theme-button span {
+        margin-left: 0; /* Remove margin to align the icon properly */
+    }
+    .stButton > button:hover {
+        background-color: #D3D3D3;  /* Darker background on hover */
+        transform: scale(1.1);  /* Slight zoom effect on hover */
+    }
+    </style>
+    """, 
+    unsafe_allow_html=True
+)
 
+# Create the button with custom class for positioning
 btn_face = ms.themes["light"]["button_face"] if ms.themes["current_theme"] == "light" else ms.themes["dark"]["button_face"]
-st.button(btn_face, on_click=ChangeTheme)
+# Streamlit button to handle theme switching
+if st.button(btn_face, key="theme_toggle", on_click=ChangeTheme):
+    # This will call the `ChangeTheme` function and refresh the page
+    pass
 
+# Ensure the page reloads and refreshes the theme when the button is clicked
 if ms.themes["refreshed"] == False:
-  ms.themes["refreshed"] = True
-  st.rerun()
+    ms.themes["refreshed"] = True
+    st.rerun()
 
 def main():
 
@@ -289,8 +324,6 @@ def main():
 
     # Initialize session state
     initialize_session_state()
-    
-    
     
     # Streamlit UI for language toggle
     language_toggle = st.toggle("Prebaci na Srpski")
