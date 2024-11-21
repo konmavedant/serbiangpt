@@ -1,3 +1,4 @@
+import streamlit as st
 import os
 import streamlit as st
 from google.cloud import vision
@@ -10,7 +11,7 @@ from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
 import requests
 import streamlit.components.v1 as components
-
+import toml
 
 # Ensure consistent language detection
 DetectorFactory.seed = 0
@@ -175,10 +176,9 @@ def display_chat_history():
         # Code block with custom CSS styles applied
         st.sidebar.code(ai_response, language="text")
 
-
 def display_image_upload_options():
     """Display options for selecting between camera and file uploads."""
-    st.markdown("**📷 Choose an Option for Image Capture**" if st.session_state.language == 'English' else "📷 Izaberite opciju za snimanje slike", help = "You can either click a photo using your camera or upload an existing image from your device." if st.session_state.language == 'English' else "Možete ili snimiti fotografiju kamerom ili preneti postojeću sliku sa svog uređaja.")
+    st.markdown("📷 Choose an Option for Image Capture" if st.session_state.language == 'English' else "📷 Izaberite opciju za snimanje slike", help = "You can either click a photo using your camera or upload an existing image from your device." if st.session_state.language == 'English' else "Možete ili snimiti fotografiju kamerom ili preneti postojeću sliku sa svog uređaja.")
 
     # Create two buttons side-by-side using columns
     col1, col2 = st.columns([1, 1])
@@ -206,11 +206,12 @@ def display_image_upload_options():
     uploaded_file = None
 
     if st.session_state.show_camera:
-        st.markdown("📸 Use Camera to Capture Image*" if st.session_state.language == 'English' else "📸 Koristite kameru za snimanje slike*")
+        st.markdown("📸 Use Camera to Capture Image" if st.session_state.language == 'English' else "📸 Koristite kameru za snimanje slike*")
         uploaded_file_camera = st.camera_input("Click to take a photo" if st.session_state.language == 'English' else "Kliknite da uslikate")
+        
 
     if st.session_state.show_uploader:
-        st.markdown("📁 Upload Image File*" if st.session_state.language == 'English' else "📁 Otpremi sliku*")
+        st.markdown("📁 Upload Image File" if st.session_state.language == 'English' else "📁 Otpremi sliku*")
         uploaded_file = st.file_uploader("Choose an image file" if st.session_state.language == 'English' else "Izaberite fajl sa slikom", type=["jpg", "jpeg", "png"])
 
     return uploaded_file_camera, uploaded_file
@@ -235,7 +236,48 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+ms = st.session_state
+if "themes" not in ms: 
+  ms.themes = {"current_theme": "light",
+                    "refreshed": True,
+                    
+                    "light": {"theme.base": "dark",
+                              "theme.backgroundColor": "black",
+                              "theme.primaryColor": "#c98bdb",
+                              "theme.secondaryBackgroundColor": "#5591f5",
+                              "theme.textColor": "white",
+                              "theme.textColor": "white",
+                              "button_face": "🌜",
+                              },
+
+                    "dark":  {"theme.base": "light",
+                              "theme.backgroundColor": "white",
+                              "theme.primaryColor": "#5591f5",
+                              "theme.secondaryBackgroundColor": "#82E1D7",
+                              "theme.textColor": "#0a1464",
+                              "button_face": "🌞"},
+                    }
+  
+
+def ChangeTheme():
+  previous_theme = ms.themes["current_theme"]
+  tdict = ms.themes["light"] if ms.themes["current_theme"] == "light" else ms.themes["dark"]
+  for vkey, vval in tdict.items(): 
+    if vkey.startswith("theme"): st._config.set_option(vkey, vval)
+
+  ms.themes["refreshed"] = False
+  if previous_theme == "dark": ms.themes["current_theme"] = "light"
+  elif previous_theme == "light": ms.themes["current_theme"] = "dark"
+
+btn_face = ms.themes["light"]["button_face"] if ms.themes["current_theme"] == "light" else ms.themes["dark"]["button_face"]
+st.button(btn_face, on_click=ChangeTheme)
+
+if ms.themes["refreshed"] == False:
+  ms.themes["refreshed"] = True
+  st.rerun()
+
 def main():
+
     # URL to the public JSON credentials file hosted on Google Cloud Storage
     credentials_url = "https://storage.googleapis.com/serbia-gpt/gentle-impulse-442016-m5-685a326dc711.json"
 
@@ -247,11 +289,13 @@ def main():
 
     # Initialize session state
     initialize_session_state()
-
+    
+    
+    
     # Streamlit UI for language toggle
     language_toggle = st.toggle("Prebaci na Srpski")
     st.session_state.language = 'Serbian' if language_toggle else 'English'
-
+    
     # Set page title and instructions
     title_text = "Srpski.AI 📸"
     st.title(title_text)
