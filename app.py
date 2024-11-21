@@ -60,8 +60,28 @@ def initialize_groq_chat(groq_api_key, model_name):
     """Initialize Groq chat with API key and model."""
     return ChatGroq(groq_api_key=groq_api_key, model_name=model_name)
 
-def perform_ocr_with_vision_api(image_path, credentials):
-    """Performs OCR using Google Cloud Vision API with the provided credentials."""
+def setup_sidebar_language_selection():
+    """Setup the sidebar for selecting translation language."""
+    st.sidebar.title("Language Options", help = "Select the language for Image Translation")
+    #st.sidebar.info("Select the language for translation.")
+
+    # Create an instance of GoogleTranslator to access supported languages
+    translator = GoogleTranslator()
+    available_languages = translator.get_supported_languages(as_dict=False)
+    
+    # Add a dropdown for language selection
+    selected_language = st.sidebar.selectbox(
+        "Translate to (Select a Language):", 
+        options=available_languages, 
+        index=available_languages.index("english")  # Default to English
+    )
+
+    # Save selected language in session state
+    st.session_state.selected_translation_language = selected_language
+    return selected_language
+
+def perform_ocr_with_vision_api(image_path, credentials, selected_language):
+    """Performs OCR and translates based on selected language."""
     client = vision.ImageAnnotatorClient(credentials=credentials)
     with open(image_path, 'rb') as image_file:
         content = image_file.read()
@@ -71,10 +91,8 @@ def perform_ocr_with_vision_api(image_path, credentials):
 
     ocr_text = response.text_annotations[0].description if response.text_annotations else ""
     detected_language = 'unknown'
-    translated_text = ocr_text
-    target_language = 'Unknown'
 
-    # Attempt to detect language from Google Vision's locale
+    # Attempt to detect the language of the OCR text
     locale = response.text_annotations[0].locale if response.text_annotations else None
     if locale:
         detected_language = locale
@@ -85,22 +103,19 @@ def perform_ocr_with_vision_api(image_path, credentials):
             print(f"Language detection failed: {e}")
             detected_language = "unknown"
 
+    # Translation logic
+    translated_text = ocr_text  # Default to no translation
     try:
-        # Handle translation
-        if detected_language in ['sr', 'mk', 'unknown']:
-            translated_text = GoogleTranslator(source="auto", target="en").translate(ocr_text)
-            target_language = "English"
-        elif detected_language == 'en':
-            translated_text = GoogleTranslator(source="en", target="sr").translate(ocr_text)
-            target_language = "Serbian"
+        # Perform translation if the detected language differs from selected language
+        if detected_language != selected_language:
+            translated_text = GoogleTranslator(source="auto", target=selected_language).translate(ocr_text)
         else:
-            translated_text = f"Text detected as {detected_language}, unsupported for translation."
-            target_language = "Unknown"
+            translated_text = f"Text is already in {selected_language}."
     except Exception as e:
         translated_text = f"Translation failed. Extracted text: {ocr_text}"
-        print(f"Error during translation: {e}")
+        print(f"Translation error: {e}")
 
-    return ocr_text, translated_text, detected_language, target_language
+    return ocr_text, translated_text, detected_language, selected_language
 
 def initialize_conversation(groq_chat, memory):
     """Initialize conversation chain with memory."""
@@ -244,16 +259,16 @@ if "themes" not in ms:
                     "light": {"theme.base": "dark",
                               "theme.backgroundColor": "black",
                               "theme.primaryColor": "#c98bdb",
-                              "theme.secondaryBackgroundColor": "#D3D3D3",
-                              "theme.textColor": "white",
-                              "theme.textColor": "white",
+                              "theme.secondaryBackgroundColor": "#5591f5",
+                              "theme.textColor": "#white",
+                              "theme.textColor": "#white",
                               "button_face": "🌜",
                               },
 
                     "dark":  {"theme.base": "light",
                               "theme.backgroundColor": "white",
                               "theme.primaryColor": "#5591f5",
-                              "theme.secondaryBackgroundColor": "#D3D3D3",
+                              "theme.secondaryBackgroundColor": "#82E1D7",
                               "theme.textColor": "#0a1464",
                               "button_face": "🌞"},
                     }
@@ -291,7 +306,7 @@ st.markdown(
         margin-left: 0; /* Remove margin to align the icon properly */
     }
     .stButton > button:hover {
-        background-color: #D3D3D3;  /* Darker background on hover */
+        background-color: #7a92d8;  /* Darker background on hover */
         transform: scale(1.1);  /* Slight zoom effect on hover */
     }
     </style>
@@ -328,6 +343,9 @@ def main():
     # Streamlit UI for language toggle
     language_toggle = st.toggle("Prebaci na Srpski")
     st.session_state.language = 'Serbian' if language_toggle else 'English'
+
+    # Sidebar Language Selection
+    selected_language = setup_sidebar_language_selection()
     
     # Set page title and instructions
     title_text = "Srpski.AI 📸"
@@ -347,38 +365,22 @@ def main():
     uploaded_file_camera, uploaded_file = display_image_upload_options()
 
     # Handle image processing
-    if uploaded_file_camera is not None or uploaded_file is not None:
+    if uploaded_file_camera or uploaded_file:
         uploaded_file = uploaded_file_camera or uploaded_file
 
-        with st.spinner("Processing image for text..." if st.session_state.language == 'English' else "Obrada slike za tekst..."):
+        with st.spinner("Processing image..."):
             temp_path = f"temp_{uploaded_file.name}"
             with open(temp_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             try:
-                # Perform OCR
-                ocr_text, translated_text, detected_language, target_language = perform_ocr_with_vision_api(temp_path, credentials)
+                # Perform OCR and translation
+                ocr_text, translated_text, detected_language, target_lang = perform_ocr_with_vision_api(
+                    temp_path, credentials, selected_language  # Pass the selected language
+                )
 
-                # Append OCR results to chat history
-                user_action = "Uploaded Image for OCR Translation"
-                st.session_state.chat_history.append({
-                    "human": user_action,
-                    "AI": (
-                        f"*Detected Text ({detected_language.capitalize()}):* {ocr_text}\n\n"
-                        f"*Translated to {target_language.capitalize()}:* {translated_text}"
-                    )
-                })
-
-                # Display chat response for OCR result
-                with st.chat_message("user"):
-                    st.markdown(user_action)
-                with st.chat_message("assistant"):
-                    st.markdown(
-                        f"*Detected Text ({detected_language.capitalize()}):* {ocr_text}\n\n"
-                        f"*Translated to {target_language.capitalize()}:* {translated_text}"
-                    )
-
-                # Save translated text to session state for further use
-                st.session_state.ocr_text = translated_text
+                # Display OCR and translation results
+                st.write(f"**Detected Text ({detected_language.capitalize()}):** {ocr_text}")
+                st.write(f"**Translated Text ({target_lang.capitalize()}):** {translated_text}")
 
             finally:
                 os.remove(temp_path)
