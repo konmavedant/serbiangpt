@@ -11,7 +11,6 @@ from langdetect import detect, DetectorFactory
 from deep_translator import GoogleTranslator
 import requests
 import streamlit.components.v1 as components
-import toml
 
 # Ensure consistent language detection
 DetectorFactory.seed = 0
@@ -30,37 +29,21 @@ hide_menu_style = """
 """
 st.markdown(hide_menu_style, unsafe_allow_html=True)
 
-# Initialize login state
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-if "credentials_verified" not in st.session_state:
-    st.session_state.credentials_verified = False
-
-# Default credentials
-DEFAULT_USERNAME = "user_name"
-DEFAULT_PASSWORD = "user@123"
-
-def login():
-    """Display the login content with Verify and Login buttons."""
-    st.title("Login to Srpski.AI")
-    
-    username = st.text_input("Username", key="login_username")
-    password = st.text_input("Password", type="password", key="login_password")
-
-    # Verify button
-    if st.button("Verify"):
-        if username == DEFAULT_USERNAME and password == DEFAULT_PASSWORD:
-            st.session_state.credentials_verified = True
-            st.success("Valid credentials!")
-        else:
-            st.session_state.credentials_verified = False
-            st.error("Invalid username or password")
-
-    # Login button (enabled only if credentials are verified)
-    if st.session_state.credentials_verified:
-        if st.button("Login"):
-            st.session_state.logged_in = True
+# Show a login form using an expander (simulating a popup)
+def login_popup():
+    """Show the login form as a simulated popup."""
+    with st.expander("Login to Srpski AI ✨", expanded=True):  # Expander simulates a modal-like effect
+        username = st.text_input("Username 👤")
+        password = st.text_input("Password 🔑", type="password")
+        if st.button("Login ⚡"):
+            if username == "user_name" and password == "user@123":
+                st.session_state.logged_in = True
+                st.session_state.login_successful = True
+            else:
+                st.error("Invalid username or password")
 
 
 def load_credentials_from_url(json_url):
@@ -264,26 +247,6 @@ def display_image_upload_options():
 
     return uploaded_file_camera, uploaded_file
 
-st.markdown(
-    """
-    <style>
-        /* Ensure buttons remain side-by-side on small screens */
-        @media (max-width: 600px) {
-            .stButton>button {
-                width: 100%;
-            }
-        }
-
-        /* Adjust column layout on smaller screens for better appearance */
-        .stButton {
-            display: inline-block;
-            width: auto;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
 ms = st.session_state
 if "themes" not in ms: 
   ms.themes = {"current_theme": "light",
@@ -293,10 +256,9 @@ if "themes" not in ms:
                               "theme.backgroundColor": "black",
                               "theme.primaryColor": "#c98bdb",
                               "theme.secondaryBackgroundColor": "#5591f5",
-                              "theme.textColor": "#white",
-                              "theme.textColor": "#white",
-                              "button_face": "🌜",
-                              },
+                              "theme.textColor": "white",
+                              "theme.textColor": "white",
+                              "button_face": "🌜"},
 
                     "dark":  {"theme.base": "light",
                               "theme.backgroundColor": "white",
@@ -316,47 +278,13 @@ def ChangeTheme():
   ms.themes["refreshed"] = False
   if previous_theme == "dark": ms.themes["current_theme"] = "light"
   elif previous_theme == "light": ms.themes["current_theme"] = "dark"
-  
-# Add custom CSS to style and position the button
-st.markdown(
-    """
-    <style>
-    .theme-button {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 9999;
-        border: none;
-        background-color: #5591f5;
-        color: white;
-        padding: 10px 20px;
-        border-radius: 50%;
-        border: none;
-        font-size: 18px;
-        cursor: pointer;
-    }
-    .theme-button span {
-        margin-left: 0; /* Remove margin to align the icon properly */
-    }
-    .stButton > button:hover {
-        transform: scale(1.1);  /* Slight zoom effect on hover */
-    }
-    </style>
-    """, 
-    unsafe_allow_html=True
-)
 
-# Create the button with custom class for positioning
 btn_face = ms.themes["light"]["button_face"] if ms.themes["current_theme"] == "light" else ms.themes["dark"]["button_face"]
-# Streamlit button to handle theme switching
-if st.button(btn_face, key="theme_toggle", on_click=ChangeTheme):
-    # This will call the `ChangeTheme` function and refresh the page
-    pass
+st.button(btn_face, on_click=ChangeTheme)
 
-# Ensure the page reloads and refreshes the theme when the button is clicked
 if ms.themes["refreshed"] == False:
-    ms.themes["refreshed"] = True
-    st.rerun()
+  ms.themes["refreshed"] = True
+  st.rerun()
 
 def main_app():
 
@@ -442,12 +370,14 @@ def main_app():
         with st.chat_message("assistant"):
             st.markdown(ai_response)
 
+# Main function to handle page rendering
 def main():
-    """Main function to render the app."""
-    if st.session_state.logged_in:
-        main_app()  # Show main app content
+    """Main function to handle page rendering."""
+    
+    if not st.session_state.logged_in:
+        login_popup()  # Show the login form if the user is not logged in
     else:
-        login()  # Show login page
+        main_app()  # Render the main app content
 
 if __name__ == "__main__":
     main()
