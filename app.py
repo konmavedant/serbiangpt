@@ -528,7 +528,7 @@ def main_app():
             finally:
                 os.remove(temp_path)
 
-    if user_question := st.chat_input("Ask your question here ✨"):
+    if user_question := st.chat_input("Ask anything ✨"):
         with st.chat_message("user"):
             st.markdown(user_question)  # Render user question here
 
