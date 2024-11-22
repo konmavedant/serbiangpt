@@ -442,7 +442,7 @@ if "themes" not in ms:
                     "dark":  {"theme.base": "light",
                             "theme.backgroundColor": "white",
                             "theme.primaryColor": "#5591f5",
-                            "theme.secondaryBackgroundColor": "#00008B",
+                            "theme.secondaryBackgroundColor": "#00004B",
                             "theme.textColor": "black",
                             "button_face": "🌞"},
                     }
