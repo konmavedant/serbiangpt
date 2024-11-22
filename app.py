@@ -442,7 +442,7 @@ if "themes" not in ms:
                     "dark":  {"theme.base": "light",
                             "theme.backgroundColor": "white",
                             "theme.primaryColor": "#5591f5",
-                            "theme.secondaryBackgroundColor": "#82E1D7",
+                            "theme.secondaryBackgroundColor": "#0000FF",
                             "theme.textColor": "#0a1464",
                             "button_face": "🌞"},
                     }
@@ -528,7 +528,7 @@ def main_app():
             finally:
                 os.remove(temp_path)
 
-    if user_question := st.chat_input("Ask anything ✨"):
+    if user_question := st.chat_input("Ask me anything! ✨"):
         with st.chat_message("user"):
             st.markdown(user_question)  # Render user question here
 
