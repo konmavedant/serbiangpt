@@ -478,7 +478,8 @@ def main_app():
 
     # Initialize session state
     initialize_session_state()
-    
+
+    st.markdown("👆 Open the sidebar to select language")
     # Streamlit UI for language toggle
     language_toggle = st.toggle("Prebaci na Srpski")
     st.session_state.language = 'Serbian' if language_toggle else 'English'
