@@ -443,7 +443,7 @@ if "themes" not in ms:
                             "theme.backgroundColor": "white",
                             "theme.primaryColor": "#5591f5",
                             "theme.secondaryBackgroundColor": "#0000FF",
-                            "theme.textColor": "#0a1464",
+                            "theme.textColor": "black",
                             "button_face": "🌞"},
                     }
 
