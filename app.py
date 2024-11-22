@@ -19,7 +19,7 @@ DetectorFactory.seed = 0
 dotenv.load_dotenv(dotenv.find_dotenv())
 
 # Streamlit page settings
-st.set_page_config(page_title="Srpski.AI", page_icon="📸")
+st.set_page_config(page_title="Srpski AI", page_icon="📸")
 hide_menu_style = """
     <style>
     #MainMenu {visibility: hidden;}
@@ -41,7 +41,8 @@ def login_popup():
         if st.button("Login ⚡"):
             if username == "user_name" and password == "user@123":
                 st.session_state.logged_in = True
-                st.session_state.login_successful = True
+                st.success("Valid Credentials ✅")
+                st.success("Click the login button once more to login! 😇")
             else:
                 st.error("Invalid username or password")
 
@@ -78,7 +79,7 @@ def initialize_groq_chat(groq_api_key, model_name):
 
 def setup_sidebar_language_selection():
     """Setup the sidebar for selecting translation language."""
-    st.sidebar.title("Language Options", help = "Select the language for Image Translation")
+    st.sidebar.title("Translate text in Image" if st.session_state.language == 'English' else "Prevedi tekst na slici", help = "Select the language for Image Translation" if st.session_state.language == 'English' else "Izaberite jezik za prevođenje slike")
     #st.sidebar.info("Select the language for translation.")
 
     # Create an instance of GoogleTranslator to access supported languages
@@ -86,16 +87,17 @@ def setup_sidebar_language_selection():
     available_languages = translator.get_supported_languages(as_dict=False)
     
     # Add a dropdown for language selection
-    selected_language = st.sidebar.selectbox(
-        "Translate to (Select a Language):", 
+    translation_language = st.sidebar.selectbox(
+        "Select a Language" if st.session_state.language == 'English' else "Izaberite jezik", 
         options=available_languages, 
         index=available_languages.index("english")  # Default to English
     )
 
     # Save selected language in session state
-    st.session_state.selected_translation_language = selected_language
-    return selected_language
+    st.session_state.selected_translation_language = translation_language
+    return translation_language
 
+#is this needs to be edited
 def perform_ocr_with_vision_api(image_path, credentials, selected_language):
     """Performs OCR and translates based on selected language."""
     client = vision.ImageAnnotatorClient(credentials=credentials)
@@ -137,30 +139,207 @@ def initialize_conversation(groq_chat, memory):
     """Initialize conversation chain with memory."""
     return ConversationChain(llm=groq_chat, memory=memory)
 
-def process_user_question(user_question, conversation1, conversation2, uploaded_image=None, ocr_text=""): 
-    """Processes the user question and generates a hybrid response."""
-    # Always prefix user questions with a directive to answer in Serbian if the toggle is on
-    if st.session_state.language == 'Serbian':
-        user_question_for_model = f"Molim vas, odgovarajte na srpskom: {user_question}"
+def initialize_language_options():
+    """Initialize the sidebar for selecting interaction language."""
+    if "chat_language" not in st.session_state:
+        st.session_state.chat_language = "en"
+
+    st.sidebar.title("Chat Language Options" if st.session_state.language == 'English' else "Opcije jezika za chat", help = "Select the language in which the chatbot should respond!" if st.session_state.language == 'English' else "Izaberite jezik na kojem chatbot treba da odgovara!")
+    
+    # Full list of languages and their codes
+    available_languages = {
+        "Afrikaans": "af",
+        "Albanian": "sq",
+        "Amharic": "am",
+        "Arabic": "ar",
+        "Armenian": "hy",
+        "Assamese": "as",
+        "Aymara": "ay",
+        "Azerbaijani": "az",
+        "Bambara": "bm",
+        "Basque": "eu",
+        "Belarusian": "be",
+        "Bengali": "bn",
+        "Bhojpuri": "bho",
+        "Bosnian": "bs",
+        "Bulgarian": "bg",
+        "Catalan": "ca",
+        "Cebuano": "ceb",
+        "Chichewa": "ny",
+        "Chinese (Simplified)": "zh-CN",
+        "Chinese (Traditional)": "zh-TW",
+        "Corsican": "co",
+        "Croatian": "hr",
+        "Czech": "cs",
+        "Danish": "da",
+        "Dhivehi": "dv",
+        "Dogri": "doi",
+        "Dutch": "nl",
+        "English": "en",
+        "Esperanto": "eo",
+        "Estonian": "et",
+        "Ewe": "ee",
+        "Filipino": "tl",
+        "Finnish": "fi",
+        "French": "fr",
+        "Frisian": "fy",
+        "Galician": "gl",
+        "Georgian": "ka",
+        "German": "de",
+        "Greek": "el",
+        "Guarani": "gn",
+        "Gujarati": "gu",
+        "Haitian Creole": "ht",
+        "Hausa": "ha",
+        "Hawaiian": "haw",
+        "Hebrew": "iw",
+        "Hindi": "hi",
+        "Hmong": "hmn",
+        "Hungarian": "hu",
+        "Icelandic": "is",
+        "Igbo": "ig",
+        "Ilocano": "ilo",
+        "Indonesian": "id",
+        "Irish": "ga",
+        "Italian": "it",
+        "Japanese": "ja",
+        "Javanese": "jw",
+        "Kannada": "kn",
+        "Kazakh": "kk",
+        "Khmer": "km",
+        "Kinyarwanda": "rw",
+        "Konkani": "gom",
+        "Korean": "ko",
+        "Krio": "kri",
+        "Kurdish (Kurmanji)": "ku",
+        "Kurdish (Sorani)": "ckb",
+        "Kyrgyz": "ky",
+        "Lao": "lo",
+        "Latin": "la",
+        "Latvian": "lv",
+        "Lingala": "ln",
+        "Lithuanian": "lt",
+        "Luganda": "lg",
+        "Luxembourgish": "lb",
+        "Macedonian": "mk",
+        "Maithili": "mai",
+        "Malagasy": "mg",
+        "Malay": "ms",
+        "Malayalam": "ml",
+        "Maltese": "mt",
+        "Maori": "mi",
+        "Marathi": "mr",
+        "Meiteilon (Manipuri)": "mni-Mtei",
+        "Mizo": "lus",
+        "Mongolian": "mn",
+        "Myanmar": "my",
+        "Nepali": "ne",
+        "Norwegian": "no",
+        "Odia (Oriya)": "or",
+        "Oromo": "om",
+        "Pashto": "ps",
+        "Persian": "fa",
+        "Polish": "pl",
+        "Portuguese": "pt",
+        "Punjabi": "pa",
+        "Quechua": "qu",
+        "Romanian": "ro",
+        "Russian": "ru",
+        "Samoan": "sm",
+        "Sanskrit": "sa",
+        "Scots Gaelic": "gd",
+        "Sepedi": "nso",
+        "Serbian": "sr",
+        "Sesotho": "st",
+        "Shona": "sn",
+        "Sindhi": "sd",
+        "Sinhala": "si",
+        "Slovak": "sk",
+        "Slovenian": "sl",
+        "Somali": "so",
+        "Spanish": "es",
+        "Sundanese": "su",
+        "Swahili": "sw",
+        "Swedish": "sv",
+        "Tajik": "tg",
+        "Tamil": "ta",
+        "Tatar": "tt",
+        "Telugu": "te",
+        "Thai": "th",
+        "Tigrinya": "ti",
+        "Tsonga": "ts",
+        "Turkish": "tr",
+        "Turkmen": "tk",
+        "Twi": "ak",
+        "Ukrainian": "uk",
+        "Urdu": "ur",
+        "Uyghur": "ug",
+        "Uzbek": "uz",
+        "Vietnamese": "vi",
+        "Welsh": "cy",
+        "Xhosa": "xh",
+        "Yiddish": "yi",
+        "Yoruba": "yo",
+        "Zulu": "zu"
+    }
+
+    # Display dropdown for language selection
+    selected_language = st.sidebar.selectbox(
+        "Select a Language" if st.session_state.language == 'English' else "Izaberite jezik",
+        options=list(available_languages.keys()),
+        index=list(available_languages.keys()).index("English"),
+    )
+
+    # Save selected chatbot language code in session state
+    st.session_state.chatbot_language = available_languages[selected_language]
+    return selected_language
+
+def process_user_question(user_question, conversation_model, chatbot_language):
+    """
+    Process the user question and generate a chatbot response in the selected language.
+    """
+    # Initialize chat history in session state if not already set
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+
+    # Step 1: Translate user input to English for processing
+    if chatbot_language != "en":  # Use language code "en" for English
+        try:
+            user_question_translated = GoogleTranslator(source="auto", target="en").translate(user_question)
+        except Exception as e:
+            st.error(f"Error translating user input to English: {e}")
+            return
     else:
-        user_question_for_model = user_question
+        user_question_translated = user_question
 
-    # Append OCR text if available
-    if uploaded_image and ocr_text:
-        user_question_for_model += f" (Tekst iz slike: {ocr_text})"
+    # Step 2: Generate response using the selected model
+    try:
+        response = conversation_model(user_question_translated).get("response", "").strip()
+    except Exception as e:
+        st.error(f"Error generating chatbot response: {e}")
+        return
 
-    # Get responses from both conversation models
-    response1 = conversation1(user_question_for_model).get('response', '').strip()
-    response2 = conversation2(user_question_for_model).get('response', '').strip()
-
-    # Generate hybrid response
-    hybrid_response = response1 if response1 == response2 else f"{response1} {response2}"
-
-    # Append the conversation to chat history
-    if not st.session_state.chat_history or st.session_state.chat_history[-1]['human'] != user_question:
-        st.session_state.chat_history.append({'human': user_question, 'AI': hybrid_response})
+    # Step 3: Translate the response back to the selected chatbot language
+    if chatbot_language != "en":
+        try:
+            response_translated = GoogleTranslator(source="en", target=chatbot_language).translate(response)
+        except Exception as e:
+            st.error(f"Error translating AI response to {chatbot_language}: {e}")
+            response_translated = response  # Fallback to untranslated response
     else:
-        st.session_state.chat_history[-1]['AI'] = hybrid_response
+        response_translated = response
+
+    # Step 4: Append the interaction to the chat history if not already added
+    new_entry = {"human": user_question, "AI": response_translated}
+    if not st.session_state.chat_history or st.session_state.chat_history[-1] != new_entry:
+        st.session_state.chat_history.append(new_entry)
+
+    # Step 5: Display the assistant response (No need to re-render user question here)
+    with st.chat_message("assistant"):
+        st.markdown(response_translated)
+
+
+
 
 def display_chat_history():
     """Displays the chat history in the sidebar with a copy-to-clipboard option for AI responses."""
@@ -261,13 +440,13 @@ if "themes" not in ms:
                               "button_face": "🌜"},
 
                     "dark":  {"theme.base": "light",
-                              "theme.backgroundColor": "white",
-                              "theme.primaryColor": "#5591f5",
-                              "theme.secondaryBackgroundColor": "#82E1D7",
-                              "theme.textColor": "#0a1464",
-                              "button_face": "🌞"},
+                            "theme.backgroundColor": "white",
+                            "theme.primaryColor": "#5591f5",
+                            "theme.secondaryBackgroundColor": "#82E1D7",
+                            "theme.textColor": "#0a1464",
+                            "button_face": "🌞"},
                     }
-  
+
 
 def ChangeTheme():
   previous_theme = ms.themes["current_theme"]
@@ -305,15 +484,18 @@ def main_app():
     st.session_state.language = 'Serbian' if language_toggle else 'English'
 
     # Sidebar Language Selection
-    selected_language = setup_sidebar_language_selection()
+    translation_language = setup_sidebar_language_selection()
+
+    # Sidebar Language Selection
+    chatbot_language = initialize_language_options()
     
     # Set page title and instructions
-    title_text = "Srpski.AI 📸"
+    title_text = "Srpski AI 📸"
     st.title(title_text)
     welcome_text = (
-        "Translate any photo from Serbian to English or vice versa and chat with Srpski.AI!"
+        "Translate text from photos and chat with Srpski AI in any language!"
         if st.session_state.language == 'English'
-        else "Prevedite bilo koju fotografiju sa srpskog na engleski ili obrnuto i razgovarajte sa Srpski.AI!"
+        else "Prevedite tekst sa fotografija i razgovarajte sa Srpski AI na bilo kom jeziku!"
     )
     st.markdown(welcome_text)
 
@@ -335,7 +517,7 @@ def main_app():
             try:
                 # Perform OCR and translation
                 ocr_text, translated_text, detected_language, target_lang = perform_ocr_with_vision_api(
-                    temp_path, credentials, selected_language  # Pass the selected language
+                    temp_path, credentials, translation_language  # Pass the selected language
                 )
 
                 # Display OCR and translation results
@@ -345,30 +527,17 @@ def main_app():
             finally:
                 os.remove(temp_path)
 
-    # Handle user question input
-    if user_question := st.chat_input("😇 Ask Questions" if st.session_state.language == 'English' else "😇 Postavite pitanja"):
-        if not st.session_state.chat_history or st.session_state.chat_history[-1]["human"] != user_question:
-            st.session_state.chat_history.append({"human": user_question, "AI": ""})
+    if user_question := st.chat_input("Ask your question here ✨"):
         with st.chat_message("user"):
-            st.markdown(user_question)
+            st.markdown(user_question)  # Render user question here
 
-        groq_chat_model1 = initialize_groq_chat(os.environ['GROQ_API_KEY'], st.session_state.model1)
-        groq_chat_model2 = initialize_groq_chat(os.environ['GROQ_API_KEY'], st.session_state.model2)
-        conversation_model1 = initialize_conversation(groq_chat_model1, memory)
-        conversation_model2 = initialize_conversation(groq_chat_model2, memory)
+        # Initialize chatbot model
+        groq_chat_model = initialize_groq_chat(os.environ["GROQ_API_KEY"], st.session_state.model1)
+        conversation_model = initialize_conversation(groq_chat_model, memory)
 
-        with st.spinner("Bot is thinking..." if st.session_state.language == 'English' else "Četbot razmišlja..."):
-            process_user_question(
-                user_question,
-                conversation_model1,
-                conversation_model2,
-                uploaded_image=st.session_state.uploaded_image,
-                ocr_text=st.session_state.ocr_text
-            )
-
-        ai_response = st.session_state.chat_history[-1]["AI"]
-        with st.chat_message("assistant"):
-            st.markdown(ai_response)
+        # Process the user question
+        with st.spinner("The bot is thinking..."):
+            process_user_question(user_question, conversation_model, st.session_state.chatbot_language)
 
 # Main function to handle page rendering
 def main():
